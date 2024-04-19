@@ -140,4 +140,16 @@ public class Sender {
         // Implement logic to check if the packet is a SYN-ACK packet
         return true; // Placeholder, actual implementation depends on protocol
     }
+
+    private boolean isACK(byte[] data) {
+        // Check if the packet is a ACK packet
+        // Implement logic to check if the packet is a ACK packet
+        return true; // Placeholder, actual implementation depends on protocol
+    }
+
+    private boolean isFINACK(byte[] data) {
+        // Check if the packet is a FIN packet
+        // Implement logic to check if the packet is a FIN packet
+        return true; // Placeholder, actual implementation depends on protocol
+    }
 }
