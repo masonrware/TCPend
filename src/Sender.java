@@ -34,52 +34,59 @@ public class Sender {
             DatagramSocket socket = new DatagramSocket(port);
             InetAddress remoteAddress = InetAddress.getByName(remoteIP);
             byte[] buffer = new byte[mtu];
-
-            // TCP Handshake Code
-            // Send SYN packet
-            sender.sendSYN(socket, remoteAddress, remotePort);
-            // Wait for SYN-ACK from receiver
-            DatagramPacket synackPacket = new DatagramPacket(buffer, buffer.length);
-            socket.receive(synackPacket);
-            // Process SYN-ACK packet
-            if (sender.isSYNACK(synackPacket.getData())) {
-                // Send ACK to complete handshake
-                sender.sendACK(socket, remoteAddress, remotePort);
-            } else {
-                // TODO: handshake not set up properly?
-            }
             
-            // Post handshake
+            // Attempt handshake
+            sender.start_connection(sender, socket, remoteAddress, remotePort, buffer);
 
-            // TODO: we have to send and receive at the same time -- threading???
-            // Start sending data segments
-            while (true) {
-                // TODO: Read data from file into buffer
-                // Call sendDataSegment method to send the data segment
-                sender.sendDataSegment(socket, remoteAddress, remotePort, buffer);
+            // TODO -- how to send packets indefinitely??
+
+            // Wait for any inbound packet type
+            DatagramPacket inboundPacket = new DatagramPacket(buffer, buffer.length);
+            socket.receive(inboundPacket); // blocking!
+
+            // Handle different types of inbound packets
+             if (sender.isFIN(inboundPacket.getData())) {
+                // TODO: handle fin -- send back an ack and output statistics
+                sender.handleFIN(sender, socket, remoteAddress, port);
+            } else if (sender.isACK(inboundPacket.getData())) {
+                // TODO: handle ack -- potentially close connection
+                sender.handleACK(sender, socket, remoteAddress, remotePort);
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    /*
-     * HANDLERS (OUTSIDE OF HANDSHAKE)
-     */
+    // Method to handle TCP handshake only if no packets have been sent
+    private void start_connection(Sender sender, DatagramSocket socket, InetAddress remoteAddress, int remotePort, byte[] buffer) throws IOException {
+        // only start the connection if there have been no packets sent
+        if(totalPacketsSent != 0) {
+            return;
+        }
+        try {
+            // Send SYN packet
+            sender.sendSYN(sender, socket, remoteAddress, remotePort);
 
-    // Method to handle ACK reception
-    private void handleACK(int ackNumber) {
-        // Implement ACK handling logic here
-    }
+            // Wait for SYN-ACK from receiver
+            DatagramPacket synackPacket = new DatagramPacket(buffer, buffer.length);
+            socket.receive(synackPacket); // blocking!
 
-    // Method to handle retransmissions
-    private void handleRetransmission(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data) {
-        // Implement retransmission logic here
-    }
+            // Process SYN-ACK packet
+            if (sender.isSYNACK(synackPacket.getData())) {
+                // Handle the ack packet
+                sender.handleACK(sender, socket, remoteAddress, remotePort);
+                // Send ACK to complete handshake
+                sender.sendACK(sender, socket, remoteAddress, remotePort);
+            } else {
+                socket.close();
+                throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
+            }
 
-    // Method to handle FIN segment and close connection
-    private void handleFIN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
-        // Implement handling FIN logic here
+            // Only increment total packet count if handshake succeeds
+            totalPacketsSent += 2;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /*
@@ -87,44 +94,77 @@ public class Sender {
      */
 
     // Method to send UDP packet
-    private void sendPacket(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data) throws IOException {
+    private void sendUDPPacket(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data, String flagList) throws IOException {
         DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
         socket.send(packet);
+
         // Output information about the sent packet
-        outputSegmentInfo("D", sequenceNumber, data.length, -1);
+        outputSegmentInfo(flagList, sequenceNumber, data.length, -1);
     }
 
-    private void sendACK(DatagramSocket socket, InetAddress receiverIP, int receiverPort) throws IOException {
-        // Construct ACK packet data
-        byte[] ackData = { /* Construct ACK packet data */ };
-        // Send ACK packet
-        sendPacket(socket, receiverIP, receiverPort, ackData);
+    private void sendSYN(Sender sender, DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
+
     }
 
+    private void sendACK(Sender sender, DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
 
-    private void sendSYN(DatagramSocket socket, InetAddress receiverIP, int receiverPort) throws IOException {
-        // Construct SYN packet data
-        byte[] synData = { /* Construct SYN packet data */ };
-        // Send SYN packet
-        sendPacket(socket, receiverIP, receiverPort, synData);
     }
 
-    // Method to send data segment
-    private void sendDataSegment(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data) {
-        // Implement sending logic here
+    private void sendFIN(Sender sender, DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
+
     }
 
-    // Method to send FIN segment and close connection
-    private void sendFIN(DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
-        // Implement FIN segment sending logic here
+    private void sendDATA(Sender sender, DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
+
+    }
+
+    /*
+     * HANDLERS
+     */
+
+    // TODO -- we also have to output for received packets, find out where to do that
+
+    // Method to handle FIN segment and close connection
+    private void handleFIN(Sender sender, DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
+        // pseudo code for handleFin here:
+
+        /*
+         * 1. update seq + ack number
+         * 2. craft ack packet (set A flag)
+         * 3. serialize to bytes array and send ack packet via UDP
+         * 4. close connection
+         */
+    }
+
+    // Method to handle ACK reception
+    private void handleACK(Sender sender, DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
+        // pseudo code for handleAck here:
+
+        /*
+         * 1. update seq + ack number
+         * 2. check to see if the ack number is = total size + 1 (for the handshake)
+         *  2a. if so, craft a fin packet (set F flag)
+         *  2b. serialize to bytes array and send fin packet via UDP
+         */
+    }
+
+    // Method to handle DATA reception
+    private void handleDATA(Sender sender, DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
+        // pseudo code for handleAck here:
+
+        /*
+        * 1. update seq + ack number
+        * 2. craft data packet (set A+D flags)
+        * 3. serialize to bytes array and send ack/data packet via UDP
+        */
     }
 
     /*
      * MISC.
      */
-
+    
     // Method to close the connection and print statistics
-    private void closeConnectionAndPrintStatistics() {
+    private void printStatistics() {
         // Implement closing logic and print statistics here
     }
     
@@ -135,9 +175,10 @@ public class Sender {
         System.out.printf("%d snd %s %d %s %d %d %d\n", date.getTime(), flagList, seqNumber, numBytes, ackNumber);
     }
 
+    // For Handshake
     private boolean isSYNACK(byte[] data) {
-        // Check if the packet is a SYN-ACK packet
-        // Implement logic to check if the packet is a SYN-ACK packet
+        // Check if the packet is a SYNACK packet
+        // Implement logic to check if the packet is a SYNACK packet
         return true; // Placeholder, actual implementation depends on protocol
     }
 
@@ -147,7 +188,7 @@ public class Sender {
         return true; // Placeholder, actual implementation depends on protocol
     }
 
-    private boolean isFINACK(byte[] data) {
+    private boolean isFIN(byte[] data) {
         // Check if the packet is a FIN packet
         // Implement logic to check if the packet is a FIN packet
         return true; // Placeholder, actual implementation depends on protocol
