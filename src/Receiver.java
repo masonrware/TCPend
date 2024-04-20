@@ -6,8 +6,11 @@ public class Receiver {
     private static final String[] FLAGS = { "-", "S", "A", "F", "D" };
 
     // Variables to track statistics
+    private int totalDataTransferred = 0;
     private int totalDataReceived = 0;
+    private int totalPacketsSent = 0;
     private int totalPacketsReceived = 0;
+    private int totalRetransmissions = 0;
     private int totalOutOfSequencePackets = 0;
     private int totalPacketsWithIncorrectChecksum = 0;
     private int totalDuplicateAcks = 0;

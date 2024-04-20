@@ -8,8 +8,13 @@ public class Sender {
 
     // Variables to track statistics
     private int totalDataTransferred = 0;
+    private int totalDataReceived = 0;
     private int totalPacketsSent = 0;
+    private int totalPacketsReceived = 0;
     private int totalRetransmissions = 0;
+    private int totalOutOfSequencePackets = 0;
+    private int totalPacketsWithIncorrectChecksum = 0;
+    private int totalDuplicateAcks = 0;
 
     private int sequenceNumber = 0;
     private int ackNumber = 0;
