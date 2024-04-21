@@ -21,6 +21,8 @@ public class TCPend {
             int sws = Integer.parseInt(args[11]);
 
             Sender sender = new Sender(remotePort, remoteIP, port, fileName, mtu, sws);
+
+            // Send
         }
         else if (args.length == 9){     // Receiver
             if (!args[1].equals("-p") || !args[3].equals("-m") || !args[5].equals("-c") || !args[7].equals("-f")) {
