@@ -11,21 +11,22 @@ public class Sender {
     private int totalPacketsSent = 0;
     private int totalRetransmissions = 0;
 
-    public static void main(String[] args) {
-        if (args.length != 10 || !args[0].equals("-p") || !args[2].equals("-s") || !args[4].equals("-a")
-                || !args[6].equals("f") || !args[8].equals("-m") || !args[10].equals("-c")) {
-            System.out.println("Usage: java Sender -p <port> -s <remote IP> -a <remote port> f <file name> -m <mtu> -c <sws>");
-            return;
-        }
+    private int port;
+    private String remoteIP;
+    private int remotePort;
+    private String fileName;
+    private int mtu;
+    private int sws;
 
-        int port = Integer.parseInt(args[1]);
-        String remoteIP = args[3];
-        int remotePort = Integer.parseInt(args[5]);
-        String fileName = args[7];
-        int mtu = Integer.parseInt(args[9]);
-        int sws = Integer.parseInt(args[11]);
+    
+    public Sender(int p, String remIP, int remPort, String fname, int m, int s){
+        port = p;
+        remoteIP = remIP;
+        remotePort = remPort;
+        fileName = fname;
+        mtu = m;
+        sws = s;
 
-        // TODO: Implement sender logic here
     }
 
     // Method to output segment information

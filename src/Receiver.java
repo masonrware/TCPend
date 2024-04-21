@@ -12,18 +12,17 @@ public class Receiver {
     private int totalPacketsWithIncorrectChecksum = 0;
     private int totalDuplicateAcks = 0;
 
-    public static void main(String[] args) {
-        if (args.length != 8 || !args[0].equals("-p") || !args[2].equals("-m") || !args[4].equals("-c") || !args[6].equals("-f")) {
-            System.out.println("Usage: java Receiver -p <port> -m <mtu> -c <sws> -f <file name>");
-            return;
-        }
+    private int port;
+    private int mtu;
+    private int sws;
+    private String fileName;
 
-        int port = Integer.parseInt(args[1]);
-        int mtu = Integer.parseInt(args[3]);
-        int sws = Integer.parseInt(args[5]);
-        String fileName = args[7];
-
-        // TODO: Implement receiver logic here
+    
+    public Receiver(int p, int m, int s, String fname){
+        port = p;
+        mtu = m;
+        sws = s;
+        fileName = fname;
     }
 
     // Method to output segment information
