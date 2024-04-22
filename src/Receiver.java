@@ -22,6 +22,9 @@ public class Receiver {
     private int mtu;
     private int sws;
     private String fileName;
+    private DatagramSocket socket;
+    private byte[] data_buffer;
+    private byte[] header_buffer;
 
     public Receiver(int p, int m, int s, String fname){
         this.port = p;
@@ -41,38 +44,62 @@ public class Receiver {
         int sws = Integer.parseInt(args[5]);
         String fileName = args[7];
 
-        Receiver receiver = new Receiver();
+        Receiver receiver = new Receiver(port, mtu, sws, fileName);
+        receiver.startThreads();
+    }
 
-        try {
-            // TODO: how to get sender's IP address?
+    /*
+     * STARTUP CODE
+     */
 
-            DatagramSocket socket = new DatagramSocket(port);
-            byte[] buffer = new byte[mtu];
-
-
-            // Receive a TCP Packet
-            DatagramPacket inboundPacket = new DatagramPacket(buffer, buffer.length);
-            socket.receive(inboundPacket); // blocking!
-
-            InetAddress senderIP = inboundPacket.getAddress();
-            int senderPort = inboundPacket.getPort();
-
-
-            if (receiver.isSYN(inboundPacket.getData())) {
-                // Respond to Handshake
-                receiver.handleSYN(receiver, socket, senderIP, senderPort);
-            } else if (receiver.isACK(inboundPacket.getData())) {
-                // Handle the ack packet
-                receiver.handleACK(receiver, socket, senderIP, senderPort);
-            } else if (receiver.isFIN(inboundPacket.getData())) {
-                // Respond to a FIN with a FINACK
-                receiver.handleFIN(receiver, socket, senderIP, senderPort);
-            } else if (receiver.isDATA(inboundPacket.getData())) {
-                // Handle the DATA packet
-                receiver.handleDATA(receiver, socket, senderIP, senderPort);
+    private void startThreads() {
+        Thread receiverThread = new Thread(() -> {
+            try {
+                this.receiveMessages();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        });
+
+        receiverThread.start();
+    }
+
+    // private void sendMessages(int port, String remoteIP, int remotePort, String fileName, int mtu, int sws) throws IOException {
+    //     // TODO -- how to send packets indefinitely??
+    // }
+
+    private void receiveMessages() throws IOException {
+        // Receive forever (until we get a FIN)
+        while(true) {
+            try {
+                this.socket = new DatagramSocket(this.port);
+                this.data_buffer = new byte[this.mtu];
+                byte[] in_buffer = new byte[this.mtu];
+
+                // Receive a TCP Packet (for handshake)
+                DatagramPacket inboundPacket = new DatagramPacket(in_buffer, in_buffer.length);
+                socket.receive(inboundPacket); // blocking!
+
+                // These should not be class-based because they might (won't) come from different sources
+                InetAddress senderIP = inboundPacket.getAddress();
+                int senderPort = inboundPacket.getPort();
+
+                if (this.isSYN(inboundPacket.getData())) {
+                    // Respond to Handshake
+                    this.handleSYN(this.socket, senderIP, senderPort);
+                } else if (this.isACK(inboundPacket.getData())) {
+                    // Handle the ack packet
+                    this.handleACK(this.socket, senderIP, senderPort);
+                } else if (this.isFIN(inboundPacket.getData())) {
+                    // Respond to a FIN with a FINACK
+                    this.handleFIN(this.socket, senderIP, senderPort);
+                } else if (this.isDATA(inboundPacket.getData())) {
+                    // Handle the DATA packet
+                    this.handleDATA(this.socket, senderIP, senderPort);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }  
         }
     }
 
@@ -89,15 +116,15 @@ public class Receiver {
         outputSegmentInfo(flagList, sequenceNumber, data.length, -1);
     }
 
-    private void sendACK(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
 
     }
 
-    private void sendSYNACK(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendSYNACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
 
     }
 
-    private void sendFINACK(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendFINACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
 
     }
     
@@ -111,18 +138,18 @@ public class Receiver {
 
 
     // Method to handle a SYN packet only if we haven't received any packets (handshake)
-    private void handleSYN(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void handleSYN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
         if(totalPacketsReceived != 0) {
             return;
         }  
 
         // Increment total packet count
         totalPacketsReceived += 1;
-        receiver.sendSYNACK(receiver, socket, senderIP, senderPort);
+        this.sendSYNACK(socket, senderIP, senderPort);
     }
 
     // Method to handle ACK reception
-    private void handleACK(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void handleACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
         // pseudo code for handlingACK here:
 
         /*
@@ -132,7 +159,7 @@ public class Receiver {
     }
 
     // Method to handle FIN reception
-    private void handleFIN(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void handleFIN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
         // pseudo code for handleFIN here:
 
         /*
@@ -144,7 +171,7 @@ public class Receiver {
     }
 
     // Method to handle received data segment
-    private void handleDATA(Receiver receiver, DatagramSocket socket, InetAddress senderIP, int senderPort) throws IOException {
+    private void handleDATA(DatagramSocket socket, InetAddress senderIP, int senderPort) throws IOException {
         // pseudo code for handleDATA here:
 
         /*
