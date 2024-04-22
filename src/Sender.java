@@ -19,6 +19,22 @@ public class Sender {
     private int sequenceNumber = 0;
     private int ackNumber = 0;
 
+    private int port;
+    private String remoteIP;
+    private int remotePort;
+    private String fileName;
+    private int mtu;
+    private int sws;
+
+    public Sender(int p, String remIP, int remPort, String fname, int m, int s){
+        this.port = p;
+        this.remoteIP = remIP;
+        this.remotePort = remPort;
+        this.fileName = fname;
+        this.mtu = m;
+        this.sws = s;
+    }
+
     public static void main(String[] args) {
         if (args.length != 10 || !args[0].equals("-p") || !args[2].equals("-s") || !args[4].equals("-a")
                 || !args[6].equals("f") || !args[8].equals("-m") || !args[10].equals("-c")) {

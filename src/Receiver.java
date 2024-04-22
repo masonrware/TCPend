@@ -18,6 +18,18 @@ public class Receiver {
     private int sequenceNumber = 0;
     private int ackNumber = 0;
 
+    private int port;
+    private int mtu;
+    private int sws;
+    private String fileName;
+
+    public Receiver(int p, int m, int s, String fname){
+        this.port = p;
+        this.mtu = m;
+        this.sws = s;
+        this.fileName = fname;
+    }
+
     public static void main(String[] args) {
         if (args.length != 8 || !args[0].equals("-p") || !args[2].equals("-m") || !args[4].equals("-c") || !args[6].equals("-f")) {
             System.out.println("Usage: java Receiver -p <port> -m <mtu> -c <sws> -f <file name>");
