@@ -171,27 +171,24 @@ public class Receiver {
         System.out.printf("%d rcv %s %d %d %d\n", date.getTime(), flagList, seqNumber, numBytes, ackNumber);
     }
 
+    // byte 19 [ - | S | F | A ]
+    // For Handshake
     private boolean isSYN(byte[] data) {
-        // Check if the packet is a SYN packet
-        // Implement logic to check if the packet is a SYN packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isSYN: " + flags);
+        return ((flags & 0b0100) == 0b0100);
     }
 
     private boolean isACK(byte[] data) {
-        // Check if the packet is a ACK packet
-        // Implement logic to check if the packet is a ACK packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isACK: " + flags);
+        return ((flags & 0b0001) == 0b0001);
     }
 
     private boolean isFIN(byte[] data) {
-        // Check if the packet is a FIN packet
-        // Implement logic to check if the packet is a FIN packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isFIN: " + flags);
+        return ((flags & 0b0010) == 0b0010);
     }
 
-    private boolean isDATA(byte[] data) {
-        // Check if the packet is a DATA packet
-        // Implement logic to check if the packet is a DATA packet
-        return true; // Placeholder, actual implementation depends on protocol
-    }
 }

@@ -196,22 +196,24 @@ public class Sender {
         System.out.printf("%d snd %s %d %s %d %d %d\n", date.getTime(), flagList, seqNumber, numBytes, ackNumber);
     }
 
+
+    // byte 19 [ - | S | F | A ]
     // For Handshake
     private boolean isSYNACK(byte[] data) {
-        // Check if the packet is a SYNACK packet
-        // Implement logic to check if the packet is a SYNACK packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isSYNACK: " + flags);
+        return ((flags & 0b0101) == 0b0101);
     }
 
     private boolean isACK(byte[] data) {
-        // Check if the packet is a ACK packet
-        // Implement logic to check if the packet is a ACK packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isACK: " + flags);
+        return ((flags & 0b0001) == 0b0001);
     }
 
     private boolean isFIN(byte[] data) {
-        // Check if the packet is a FIN packet
-        // Implement logic to check if the packet is a FIN packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isFIN: " + flags);
+        return ((flags & 0b0010) == 0b0010);
     }
 }
