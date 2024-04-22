@@ -27,8 +27,7 @@ public class Sender {
     private int sws;
     private DatagramSocket socket;
     private InetAddress remoteAddress;
-    private byte[] data_buffer;
-    private byte[] header_buffer;
+    private byte[] buffer;
 
     public Sender(int p, String remIP, int remPort, String fname, int m, int s){
         this.port = p;
@@ -37,6 +36,7 @@ public class Sender {
         this.fileName = fname;
         this.mtu = m;
         this.sws = s;
+        this.buffer = new byte[mtu];
 
         // Attempt handshake
         try {
@@ -79,9 +79,9 @@ public class Sender {
         FileInputStream fileInputStream = new FileInputStream(fileName);
         int bytesRead;
 
-        while ((bytesRead = fileInputStream.read(this.data_buffer)) != -1) {
+        while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
             byte[] data = new byte[bytesRead];
-            System.arraycopy(this.data_buffer, 0, data, 0, bytesRead);
+            System.arraycopy(this.buffer, 0, data, 0, bytesRead);
 
             // Send data segment
             this.sendDATA(this.socket, this.remoteAddress, this.remotePort);
@@ -97,10 +97,9 @@ public class Sender {
         while(true) {
             DatagramSocket socket = new DatagramSocket(port);
             InetAddress remoteAddress = InetAddress.getByName(remoteIP);
-            byte[] buffer = new byte[mtu];
 
             // Wait for any inbound packet type
-            DatagramPacket inboundPacket = new DatagramPacket(buffer, buffer.length);
+            DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
             socket.receive(inboundPacket); // blocking!
 
             // Handle different types of inbound packets
@@ -119,7 +118,6 @@ public class Sender {
     private void startConnection() throws IOException {
         this.socket = new DatagramSocket(port);
         this.remoteAddress = InetAddress.getByName(remoteIP);
-        this.data_buffer = new byte[mtu];
 
         // only start the connection if there have been no packets sent
         if(totalPacketsSent != 0) {

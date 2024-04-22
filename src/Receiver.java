@@ -23,14 +23,14 @@ public class Receiver {
     private int sws;
     private String fileName;
     private DatagramSocket socket;
-    private byte[] data_buffer;
-    private byte[] header_buffer;
+    private byte[] buffer;
 
     public Receiver(int p, int m, int s, String fname){
         this.port = p;
         this.mtu = m;
         this.sws = s;
         this.fileName = fname;
+        this.buffer = new byte[mtu];
 
         this.startThreads();
     }
@@ -60,11 +60,9 @@ public class Receiver {
         while(true) {
             try {
                 this.socket = new DatagramSocket(this.port);
-                this.data_buffer = new byte[this.mtu];
-                byte[] in_buffer = new byte[this.mtu];
 
                 // Receive a TCP Packet (for handshake)
-                DatagramPacket inboundPacket = new DatagramPacket(in_buffer, in_buffer.length);
+                DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(inboundPacket); // blocking!
 
                 // These should not be class-based because they might (won't) come from different sources
