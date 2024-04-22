@@ -31,21 +31,8 @@ public class Receiver {
         this.mtu = m;
         this.sws = s;
         this.fileName = fname;
-    }
 
-    public static void main(String[] args) {
-        if (args.length != 8 || !args[0].equals("-p") || !args[2].equals("-m") || !args[4].equals("-c") || !args[6].equals("-f")) {
-            System.out.println("Usage: java Receiver -p <port> -m <mtu> -c <sws> -f <file name>");
-            return;
-        }
-
-        int port = Integer.parseInt(args[1]);
-        int mtu = Integer.parseInt(args[3]);
-        int sws = Integer.parseInt(args[5]);
-        String fileName = args[7];
-
-        Receiver receiver = new Receiver(port, mtu, sws, fileName);
-        receiver.startThreads();
+        this.startThreads();
     }
 
     /*
