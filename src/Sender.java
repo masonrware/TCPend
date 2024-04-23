@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.*;
 
 public class Sender {
-    private static final String[] FLAGS = { "-", "S", "A", "F", "D" };
     private static final int MAX_RETRANSMISSIONS = 3;
     private static final int HEADER_SIZE = 24 * Byte.SIZE;
 

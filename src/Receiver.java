@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.*;
 
 public class Receiver {
-    private static final String[] FLAGS = { "-", "S", "A", "F", "D" };
     private static final int HEADER_SIZE = 24 * Byte.SIZE;
 
     // Variables to track statistics
@@ -92,14 +91,8 @@ public class Receiver {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, String flag) {
-        if (flag == "A") {
+    private void sendPacket(byte[] data) {
 
-        } else if (flag == "SA") {
-
-        } else if (flag == "FA") {
-
-        }
     }
 
     // Method to send UDP packet
@@ -119,21 +112,29 @@ public class Receiver {
         this.totalPacketsReceived += 1;
         this.totalDataReceived += extractLength(recvPacketData);
 
-        if (flag == "S") {
+        String flagList = "- - - -";
+
+        if (flag == "S" || flag == "F") {
+            if(flag == "S") {
+                flagList = "S - - -";
+            } else if (flag == "F") {
+                flagList = "- - F -";
+            }
+
+            this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
+
             this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
             
             byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "SA");
+            this.sendPacket(empty_data);
         } else if (flag == "A") {
+            this.outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
+
             this.ackNumber = this.extractSequenceNumber(recvPacketData);
 
-        } else if (flag == "F") {
-            this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
-
-            
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "FA");
         } else if (flag == "D") {
+            this.outputSegmentInfo("rcv", "- - - D", extractLength(recvPacketData));
+
             int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         
             // Only update ackNumber if received packet is continuous
@@ -142,7 +143,7 @@ public class Receiver {
             }
             
             byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "A");
+            this.sendPacket(empty_data);
         }
     }
 
