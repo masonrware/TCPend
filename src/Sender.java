@@ -239,18 +239,18 @@ public class Sender {
     private boolean isSYNACK(byte[] data) {
         int flags = (int) (data[19]);
         System.out.println("isSYNACK: " + flags);
-        return ((flags & 0b0101) == 0b0101);
+        return ((flags & 0b1010) == 0b1010);
     }
 
     private boolean isACK(byte[] data) {
         int flags = (int) (data[19]);
         System.out.println("isACK: " + flags);
-        return ((flags & 0b0001) == 0b0001);
+        return ((flags & 0b1000) == 0b1000);
     }
 
     private boolean isFIN(byte[] data) {
         int flags = (int) (data[19]);
         System.out.println("isFIN: " + flags);
-        return ((flags & 0b0010) == 0b0010);
+        return ((flags & 0b0100) == 0b0100);
     }
 }

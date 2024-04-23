@@ -196,7 +196,8 @@ public class Receiver {
                (long)(header[8] & 0xFF);
     }
 
-    private int extractDataLength(byte[] header) { // 0001 1111
+    private int extractDataLength(byte[] header) { 
+        // Must disregard last 3 bits (SFA flags)
         return (header[19] & 0x1F) << 24 |
                (header[18] & 0xFF) << 16 |
                (header[17] & 0xFF) << 8 |
@@ -213,19 +214,19 @@ public class Receiver {
     private boolean isSYN(byte[] data) {
         int flags = (int) (data[19]);
         System.out.println("isSYN: " + flags);
-        return ((flags & 0b0100) == 0b0100);
+        return ((flags & 0b0010) == 0b0010);
     }
 
     private boolean isACK(byte[] data) {
         int flags = (int) (data[19]);
         System.out.println("isACK: " + flags);
-        return ((flags & 0b0001) == 0b0001);
+        return ((flags & 0b1000) == 0b1000);
     }
 
     private boolean isFIN(byte[] data) {
         int flags = (int) (data[19]);
         System.out.println("isFIN: " + flags);
-        return ((flags & 0b0010) == 0b0010);
+        return ((flags & 0b0100) == 0b0100);
     }
 
     private boolean isDATA(byte[] data) {
