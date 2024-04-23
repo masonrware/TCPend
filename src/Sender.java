@@ -30,18 +30,37 @@ public class Sender {
     private InetAddress remoteAddress;
     private byte[] buffer;
 
-    public Sender(int p, String remIP, int remPort, String fname, int m, int s){
+    public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
         this.remoteIP = remIP;
         this.remotePort = remPort;
         this.fileName = fname;
         this.mtu = m;
         this.sws = s;
-        this.buffer = new byte[mtu];
+        // Leave space for the header
+        this.buffer = new byte[mtu - HEADER_SIZE];
 
+        try {
+            this.socket = new DatagramSocket(port);
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            this.remoteAddress = InetAddress.getByName(remoteIP);
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /*
+     * STARTUP CODE
+     */
+
+    public void startHost() {
         // Attempt handshake
         try {
-            this.startConnection();
+            this.handshake();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -49,14 +68,10 @@ public class Sender {
         this.startThreads();
     }
 
-    /*
-     * STARTUP CODE
-     */
-
     private void startThreads() {
         Thread senderThread = new Thread(() -> {
             try {
-                sendMessages();
+                this.sendingThreadFunc();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -64,7 +79,7 @@ public class Sender {
 
         Thread receiverThread = new Thread(() -> {
             try {
-                receiveMessages();
+                this.receivingThreadFunc();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -74,59 +89,59 @@ public class Sender {
         receiverThread.start();
     }
 
-    // TODO finish updating this -- add bytes read to total
-    private void sendMessages() throws IOException {
+    private void sendingThreadFunc() throws IOException {
         // Open the file for reading
         FileInputStream fileInputStream = new FileInputStream(fileName);
         int bytesRead;
 
+        // buffer is of size mtu
         while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
+            // Book-keeping
+            this.sequenceNumber += bytesRead;
+            this.totalDataTransferred += bytesRead;
+            
             byte[] data = new byte[bytesRead];
-            System.arraycopy(this.buffer, 0, data, 0, bytesRead);
+            System.arraycopy(buffer, 0, data, 0, bytesRead);    
 
             // Send data segment
-            this.sendDATA(this.socket, this.remoteAddress, this.remotePort);
-            sequenceNumber += bytesRead;
+            this.sendDATA(data);
         }
 
         fileInputStream.close();
     }
 
-    // TODO finish updating this
-    private void receiveMessages() throws IOException {
+    private void receivingThreadFunc() throws IOException {
         // Receive forever (until we are done sending)
-        while(true) {
-            DatagramSocket socket = new DatagramSocket(port);
-            InetAddress remoteAddress = InetAddress.getByName(remoteIP);
-
+        while (true) {
             // Wait for any inbound packet type
             DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
             socket.receive(inboundPacket); // blocking!
 
+            // TODO: handle checksum!!!
+
             // Handle different types of inbound packets
             if (isFIN(inboundPacket.getData())) {
-                // TODO: handle fin -- send back an ack and output statistics
-                handleFIN(socket, remoteAddress, port);
+                this.handleFIN();
             } else if (isACK(inboundPacket.getData())) {
-                // TODO: handle ack -- potentially close connection
-                handleACK(socket, remoteAddress, remotePort);
+                this.handleACK();
             }
         }
     }
 
-
     // Method to handle TCP handshake only if no packets have been sent
-    private void startConnection() throws IOException {
+    private void handshake() throws IOException {
         this.socket = new DatagramSocket(port);
         this.remoteAddress = InetAddress.getByName(remoteIP);
 
         // only start the connection if there have been no packets sent
-        if(totalPacketsSent != 0) {
+        if (totalPacketsSent != 0) {
             return;
         }
         try {
+            byte[] empty_data = new byte[0];
+
             // Send SYN packet
-            this.sendSYN(socket, remoteAddress, remotePort);
+            this.sendSYN(empty_data);
 
             byte[] in_buffer = new byte[this.mtu];
 
@@ -137,9 +152,11 @@ public class Sender {
             // Process SYN-ACK packet
             if (this.isSYNACK(synackPacket.getData())) {
                 // Handle the ack packet
-                this.handleACK(this.socket, this.remoteAddress, this.remotePort);
+                this.handleACK();
                 // Send ACK to complete handshake
-                this.sendACK(this.socket, this.remoteAddress, this.remotePort);
+
+
+                this.sendACK(empty_data);
             } else {
                 socket.close();
                 throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
@@ -157,39 +174,43 @@ public class Sender {
      */
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList, InetAddress receiverIP, int receiverPort) throws IOException {
+    private void sendUDPPacket(byte[] data, String flagList, InetAddress receiverIP, int receiverPort)
+            throws IOException {
         DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
         socket.send(packet);
 
         // Output information about the sent packet
-        outputSegmentInfo(flagList, sequenceNumber, data.length, -1);
+        outputSegmentInfo(flagList, data.length);
     }
 
-    private void sendSYN(DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
-
+    private void sendSYN(byte[] data) {
+        // this.socket, this.remoteAddress, this.remotePort
     }
 
-    private void sendACK(DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
-
+    private void sendACK(byte[] data) {
+        // this.socket, this.remoteAddress, this.remotePort
     }
 
-    private void sendFIN(DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
-
+    private void sendFIN(byte[] data) {
+        // this.socket, this.remoteAddress, this.remotePort
     }
 
-    private void sendDATA(DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
-
+    private void sendDATA(byte[] data) {
+        // this.socket, this.remoteAddress, this.remotePort
     }
 
     /*
      * HANDLERS
      */
 
-    // TODO -- we also have to output for received packets, find out where to do that
+    // TODO -- we also have to output for received packets, find out where to do
+    // that
 
     // Method to handle FIN segment and close connection
-    private void handleFIN(DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
+    private void handleFIN() {
         // pseudo code for handleFin here:
+
+        // this.socket, this.remoteAddress, this.remotePort
 
         /*
          * 1. update seq + ack number
@@ -200,42 +221,51 @@ public class Sender {
     }
 
     // Method to handle ACK reception
-    private void handleACK(DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
+    private void handleACK() {
         // pseudo code for handleAck here:
 
+        // this.socket, this.remoteAddress, this.remotePort
+
+        // copy over the ack number of the received packet to our seq number
+        // copy over the seq number of the received packet + 1 to our ack number
+        this.sequenceNumber += this.buffer.length;
+        // this.ackNumber += 
         /*
          * 1. update seq + ack number
          * 2. check to see if the ack number is = total size + 1 (for the handshake)
-         *  2a. if so, craft a fin packet (set F flag)
-         *  2b. serialize to bytes array and send fin packet via UDP
+         * 2a. if so, craft a fin packet (set F flag)
+         * 2b. serialize to bytes array and send fin packet via UDP
          */
     }
 
     // Method to handle DATA reception
-    private void handleDATA(DatagramSocket socket, InetAddress receiverIP, int receiverPort) {
+    private void handleDATA() {
         // pseudo code for handleAck here:
 
+        // this.socket, this.remoteAddress, this.remotePort
+
         /*
-        * 1. update seq + ack number
-        * 2. craft data packet (set A+D flags)
-        * 3. serialize to bytes array and send ack/data packet via UDP
-        */
+         * 1. update seq + ack number
+         * 2. craft data packet (set A+D flags)
+         * 3. serialize to bytes array and send ack/data packet via UDP
+         */
     }
 
     /*
      * MISC.
      */
-    
+
     // Method to close the connection and print statistics
     private void printStatistics() {
         // Implement closing logic and print statistics here
     }
-    
+
     // Method to output segment information
-    private void outputSegmentInfo(String flagList, int seqNumber, int numBytes, int ackNumber) {
+    private void outputSegmentInfo(String flagList, int numBytes) {
         Date date = new Date();
         // Need both snd and rcv ability
-        System.out.printf("%d snd %s %d %s %d %d %d\n", date.getTime(), flagList, seqNumber, numBytes, ackNumber);
+        System.out.printf("%d snd %s %d %s %d %d %d\n", date.getTime(), flagList, this.sequenceNumber, numBytes,
+                this.ackNumber);
     }
 
     // For Handshake

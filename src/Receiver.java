@@ -33,17 +33,25 @@ public class Receiver {
         this.fileName = fname;
         this.buffer = new byte[mtu];
 
-        this.startThreads();
+        try {
+            this.socket = new DatagramSocket(port);
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
     }
 
     /*
      * STARTUP CODE
      */
 
+    public void startHost() {
+        this.startThreads();
+    }
+
     private void startThreads() {
         Thread receiverThread = new Thread(() -> {
             try {
-                this.receiveMessages();
+                this.receivingThreadFunc();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -56,12 +64,10 @@ public class Receiver {
     //     // TODO -- how to send packets indefinitely??
     // }
 
-    private void receiveMessages() throws IOException {
+    private void receivingThreadFunc() throws IOException {
         // Receive forever (until we get a FIN)
         while(true) {
             try {
-                this.socket = new DatagramSocket(this.port);
-
                 // Receive a TCP Packet (for handshake)
                 DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(inboundPacket); // blocking!
