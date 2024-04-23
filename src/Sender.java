@@ -132,10 +132,6 @@ public class Sender {
         this.socket = new DatagramSocket(port);
         this.remoteAddress = InetAddress.getByName(remoteIP);
 
-        // only start the connection if there have been no packets sent
-        if (totalPacketsSent != 0) {
-            return;
-        }
         try {
             byte[] empty_data = new byte[0];
 
@@ -148,10 +144,13 @@ public class Sender {
 
             // Process SYN-ACK packet
             if (this.isSYNACK(synackPacket.getData())) {
-                // Handle the ack packet
-                this.handlePacket("SA", synackPacket.getData());
+                if(this.extractAcknowledgmentNumber(synackPacket.getData()) == this.sequenceNumber+1) {
+                    // Handle the ack packet
+                    this.handlePacket("SA", synackPacket.getData());
+                } else {
+                    throw new IOException("Handshake Failed -- did not receive correct SYN-ACK from receiver.");
+                }
             } else {
-                socket.close();
                 throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
             }
 
@@ -193,11 +192,8 @@ public class Sender {
     }
 
     /*
-     * HANDLERS
+     * HANDLER
      */
-
-    // TODO -- we also have to output for received packets, find out where to do
-    // that
 
     private void handlePacket(String flag, byte[] recvPacketData) {
         this.totalPacketsReceived += 1;

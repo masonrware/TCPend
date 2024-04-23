@@ -50,6 +50,13 @@ public class Receiver {
     }
 
     private void startThreads() {
+        // Attempt handshake
+        try {
+            this.handshake();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         Thread receiverThread = new Thread(() -> {
             // Receive forever (until we get a FIN)
             while (true) {
@@ -57,18 +64,12 @@ public class Receiver {
                     // Receive a TCP Packet (for handshake)
                     DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
                     this.socket.receive(inboundPacket); // blocking!
-
-                    // These should not be class-based because they might (won't) come from
-                    // different sources
                     this.remoteAddress = inboundPacket.getAddress();
                     this.remotePort = inboundPacket.getPort();
-                    
-                    if (this.isSYN(inboundPacket.getData())) {
-                        this.sequenceNumber += 1;
 
-                        // Respond to Handshake
-                        this.handlePacket("S", inboundPacket.getData());
-                    } else if (this.isACK(inboundPacket.getData())) {
+                    // TODO: handle checksum!!!
+                    
+                    if (this.isACK(inboundPacket.getData())) {
                         // Handle the ack packet
                         this.handlePacket("A", inboundPacket.getData());
                     } else if (this.isFIN(inboundPacket.getData())) {
@@ -85,6 +86,37 @@ public class Receiver {
         });
 
         receiverThread.start();
+    }
+
+    private void handshake() throws IOException {
+        try {
+            DatagramPacket synPacket = new DatagramPacket(this.buffer, this.buffer.length);
+            this.socket.receive(synPacket); // blocking !
+
+            if (this.isSYN(synPacket.getData())) {
+                this.sequenceNumber += 1;
+
+                this.handlePacket("S", synPacket.getData());
+            } else {
+                throw new IOException("Handshake Failed -- did not receive SYN packet from sender.");
+            }
+
+            DatagramPacket ackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+            this.socket.receive(ackPacket); // blocking !
+
+            if (this.isACK(ackPacket.getData())) {
+                if(this.extractAcknowledgmentNumber(ackPacket.getData()) == this.sequenceNumber+1) {
+                    this.handlePacket("S", synPacket.getData());
+                }
+            } else {
+                throw new IOException("Handshake Failed -- did not receive correct ACK from sender.");
+            }
+
+            // Only increment total packet count if handshake succeeds
+            totalPacketsSent += 2;
+        }  catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /*
@@ -105,7 +137,7 @@ public class Receiver {
     }
 
     /*
-     * HANDLERS
+     * HANDLER
      */
 
     private void handlePacket(String flag, byte[] recvPacketData) {
