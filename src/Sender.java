@@ -80,6 +80,41 @@ public class Sender {
         this.startThreads();
     }
 
+    // Method to handle TCP handshake only if no packets have been sent
+    private void handshake() throws IOException {
+        this.socket = new DatagramSocket(port);
+        this.remoteAddress = InetAddress.getByName(remoteIP);
+
+        // only start the connection if there have been no packets sent
+        if (totalPacketsSent != 0) {
+            return;
+        }
+        try {
+            byte[] empty_data = new byte[0];
+
+            // Send SYN packet
+            this.sendSYN(empty_data);
+
+            // Wait for SYN-ACK from receiver
+            DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+            socket.receive(synackPacket); // blocking!
+
+            // Process SYN-ACK packet
+            if (this.isSYNACK(synackPacket.getData())) {
+                // Handle the ack packet
+                this.handleSYNCHACK("S A - -", synackPacket.getData());
+            } else {
+                socket.close();
+                throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
+            }
+
+            // Only increment total packet count if handshake succeeds
+            totalPacketsSent += 2;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void startThreads() {
         Thread senderThread = new Thread(() -> {
             try {
@@ -133,45 +168,10 @@ public class Sender {
 
             // Handle different types of inbound packets
             if (isFINACK(inboundPacket.getData())) {
-                this.handleFINACK(inboundPacket.getData());
+                this.handleSYNCHACK("- A F -", inboundPacket.getData());
             } else if (isACK(inboundPacket.getData())) {
                 this.handleACK(inboundPacket.getData());
             }
-        }
-    }
-
-    // Method to handle TCP handshake only if no packets have been sent
-    private void handshake() throws IOException {
-        this.socket = new DatagramSocket(port);
-        this.remoteAddress = InetAddress.getByName(remoteIP);
-
-        // only start the connection if there have been no packets sent
-        if (totalPacketsSent != 0) {
-            return;
-        }
-        try {
-            byte[] empty_data = new byte[0];
-
-            // Send SYN packet
-            this.sendSYN(empty_data);
-
-            // Wait for SYN-ACK from receiver
-            DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
-            socket.receive(synackPacket); // blocking!
-
-            // Process SYN-ACK packet
-            if (this.isSYNACK(synackPacket.getData())) {
-                // Handle the ack packet
-                this.handleSYNACK(synackPacket.getData());
-            } else {
-                socket.close();
-                throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
-            }
-
-            // Only increment total packet count if handshake succeeds
-            totalPacketsSent += 2;
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
@@ -197,7 +197,6 @@ public class Sender {
 
     private void sendACK(byte[] data) {
         // this.socket, this.remoteAddress, this.remotePort
-
     }
 
     private void sendFIN(byte[] data) {
@@ -217,8 +216,10 @@ public class Sender {
     // TODO -- we also have to output for received packets, find out where to do
     // that
 
-    private void handleSYNACK(byte[] recvPacketData) {
-        outputSegmentInfo("rcv", "S A - -", extractLength(recvPacketData));
+
+    // Method to handle synchronous ack messages - SYNACKS and FINACKS
+    private void handleSYNCHACK(String flagList, byte[] recvPacketData) {
+        outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
 
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
@@ -233,24 +234,7 @@ public class Sender {
         this.sendACK(empty_data);
     }
 
-    // Method to handle FIN segment and close connection
-    private void handleFINACK(byte[] recvPacketData) {
-        outputSegmentInfo("rcv", "- A F -", extractLength(recvPacketData));
-
-        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
-
-        this.ackNumber = recvSeqNum + 1;
-        this.sequenceNumber = recvAckNum;
-
-        this.totalPacketsReceived += 1;
-        this.totalDataReceived += extractLength(recvPacketData);
-
-        byte[] empty_data = new byte[0];
-        this.sendFIN(empty_data);
-    }
-
-    // Method to handle ACK reception
+    // Method to handle asynchronous ACKs (in data transfer)
     private void handleACK(byte[] recvPacketData) {
         outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 

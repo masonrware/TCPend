@@ -60,23 +60,21 @@ public class Receiver {
         receiverThread.start();
     }
 
-    // private void sendMessages(int port, String remoteIP, int remotePort, String fileName, int mtu, int sws) throws IOException {
-    //     // TODO -- how to send packets indefinitely??
-    // }
-
     private void receivingThreadFunc() throws IOException {
         // Receive forever (until we get a FIN)
         while(true) {
             try {
                 // Receive a TCP Packet (for handshake)
                 DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
-                socket.receive(inboundPacket); // blocking!
+                this.socket.receive(inboundPacket); // blocking!
 
                 // These should not be class-based because they might (won't) come from different sources
                 InetAddress senderIP = inboundPacket.getAddress();
                 int senderPort = inboundPacket.getPort();
 
                 if (this.isSYN(inboundPacket.getData())) {
+                    this.sequenceNumber += 1;
+
                     // Respond to Handshake
                     this.handleSYN(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isACK(inboundPacket.getData())) {
@@ -182,23 +180,13 @@ public class Receiver {
         // Flip all 16 bits to get the checksum
         return ~sum & 0xFFFF;
     }
-    
-    
 
     /*
      * HANDLERS
      */
 
-
-    // TODO -- we also have to output for received packets, find out where to do that
-
-
-    // Method to handle a SYN packet only if we haven't received any packets (handshake)
+    // Method to handle a SYN packet
     private void handleSYN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
-        if(totalPacketsReceived != 0) {
-            return;
-        }
-
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
 

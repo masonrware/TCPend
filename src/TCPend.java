@@ -49,6 +49,5 @@ public class TCPend {
             System.out.println("Usage for receiver: java TCPend -p <port> -m <mtu> -c <sws> -f <file name>");
             return;
         }
-
     }
 }
