@@ -123,7 +123,7 @@ public class Receiver {
     }
 
     private void sendFINACK(InetAddress senderIP, int senderPort) {
-
+        // TODO close connection?
     }
 
     /*
@@ -132,60 +132,43 @@ public class Receiver {
 
     // Method to handle a SYN packet
     private void handleSYN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
-        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
-
-        this.ackNumber = recvSeqNum + 1;
-        this.sequenceNumber = recvAckNum;
+        this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
 
         this.totalPacketsReceived += 1;
-        this.totalDataReceived += extractLength(recvPacketData);
 
         this.sendSYNACK(senderIP, senderPort);
     }
 
     // Method to handle ACK reception
     private void handleACK(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
-        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
-
-        this.ackNumber = recvSeqNum;
-        this.sequenceNumber = recvAckNum;
+        this.ackNumber = this.extractSequenceNumber(recvPacketData);
 
         this.totalPacketsReceived += 1;
-        this.totalDataReceived += extractLength(recvPacketData);
     }
 
     // Method to handle FIN reception
     private void handleFIN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
+        this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
 
+        this.totalPacketsReceived += 1;
 
-
-        // pseudo code for handleFIN here:
-
-        /*
-         * 1. update seq + ack number
-         * 2. craft ack/fin packet (set A+F flags)
-         * 3. serialize to bytes array and send ack/fin packet via UDP
-         * 4. close connection?
-         */
+        this.sendFINACK(senderIP, senderPort);
     }
 
     // Method to handle received data segment
     private void handleDATA(byte[] recvPacketData, InetAddress senderIP, int senderPort) throws IOException {
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
         
-        this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+        // Only update ackNumber if received packet is continuous
+        if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
+            this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+        }
 
-        // pseudo code for handleDATA here:
+        // Should we be doing this regardless?
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += this.extractLength(recvPacketData);
 
-        /*
-         * 1. update seq + ack number
-         * 2. write data to buffer or file?? -- need to alter args
-         * 3. craft ack packet (set A flags)
-         * 4. serialize to bytes array and send ack packet via UDP
-         */
+        this.sendACK(senderIP, senderPort);
     }
 
     /*
