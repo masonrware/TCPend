@@ -99,17 +99,23 @@ public class Receiver {
      */
 
     // Method to send UDP packet
-    private void sendUDPPacket(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data,
+    private void sendUDPPacket(InetAddress receiverIP, int receiverPort, byte[] data,
             String flagList) throws IOException {
         DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
-        socket.send(packet);
+        this.socket.send(packet);
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, data.length);
     }
 
     private void sendACK(InetAddress senderIP, int senderPort) {
-
+        byte[] ackHdr = createHeader(HEADER_SIZE, 0b100);
+        try{
+            sendUDPPacket(senderIP, senderPort, ackHdr, "- A - -");
+        }
+        catch (IOException e){
+            e.printStackTrace();
+        }
     }
 
     private void sendSYNACK(InetAddress senderIP, int senderPort) {
@@ -320,8 +326,8 @@ public class Receiver {
     }
 
     private boolean isDATA(byte[] data) {
-        System.out.println("isDATA: " + extractDataLength(data));
-        return (extractDataLength(data) > 0);
+        System.out.println("isDATA: " + extractLength(data));
+        return (extractLength(data) > 0);
     }
 
 }
