@@ -208,12 +208,16 @@ public class Receiver {
             // Get the byte array
             byte[] byteArray = byteArrayOutputStream.toByteArray();
 
-            // Print the byte array
+            int checksum = getChecksum(byteArray);
+
+            byteArray[22] = (byte)(checksum & 0xFF);
+            byteArray[23] = (byte)((checksum >> 8) & 0xFF);
+
             return byteArray;
 
         } catch (IOException e) {
             e.printStackTrace();
-            return null;
+            return null; // is this fine?
         }
 
     }
