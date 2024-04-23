@@ -172,7 +172,7 @@ public class Receiver {
             this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
             
             // byte[] empty_data = new byte[0];
-            this.sendPacket(flagNum, flag); // send an ACK
+            this.sendPacket(flagNum, flagList); // send an ACK
         } else if (flag == "A") {
             this.outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
@@ -190,7 +190,7 @@ public class Receiver {
             }
             
             // byte[] empty_data = new byte[0];
-            this.sendPacket(flagNum, flag);
+            this.sendPacket(flagNum, flagList);
         }
     }
 
