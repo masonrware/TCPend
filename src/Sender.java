@@ -3,6 +3,8 @@ import java.net.*;
 import java.util.*;
 
 public class Sender {
+    private final Object lock = new Object(); // Object for locking shared resources
+
     private static final int MAX_RETRANSMISSIONS = 3;
     private static final int HEADER_SIZE = 24 * Byte.SIZE;
 
@@ -52,7 +54,6 @@ public class Sender {
             e.printStackTrace();
         }
 
-        // Replace "example.txt" with the path to your file
         File file = new File(fname);
 
         // Check if the file exists and is a file (not a directory)
@@ -129,33 +130,31 @@ public class Sender {
 
     // Method to handle TCP handshake only if no packets have been sent
     private void handshake() throws IOException {
-        this.socket = new DatagramSocket(port);
-        this.remoteAddress = InetAddress.getByName(remoteIP);
-
         try {
             byte[] empty_data = new byte[0];
+            synchronized (lock) {
+                // Send SYN packet
+                this.sendPacket(empty_data, "S");
 
-            // Send SYN packet
-            this.sendPacket(empty_data, "S");
+                // Wait for SYN-ACK from receiver
+                DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+                socket.receive(synackPacket); // blocking!
 
-            // Wait for SYN-ACK from receiver
-            DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
-            socket.receive(synackPacket); // blocking!
-
-            // Process SYN-ACK packet
-            if (this.isSYNACK(synackPacket.getData())) {
-                if(this.extractAcknowledgmentNumber(synackPacket.getData()) == this.sequenceNumber+1) {
-                    // Handle the ack packet
-                    this.handlePacket("SA", synackPacket.getData());
+                // Process SYN-ACK packet
+                if (this.isSYNACK(synackPacket.getData())) {
+                    if (this.extractAcknowledgmentNumber(synackPacket.getData()) == this.sequenceNumber + 1) {
+                        // Handle the ack packet
+                        this.handlePacket("SA", synackPacket.getData());
+                    } else {
+                        throw new IOException("Handshake Failed -- did not receive correct SYN-ACK from receiver.");
+                    }
                 } else {
-                    throw new IOException("Handshake Failed -- did not receive correct SYN-ACK from receiver.");
+                    throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
                 }
-            } else {
-                throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
-            }
 
-            // Only increment total packet count if handshake succeeds
-            totalPacketsSent += 2;
+                // Only increment total packet count if handshake succeeds
+                totalPacketsSent += 2;
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -167,16 +166,18 @@ public class Sender {
 
     private void sendPacket(byte[] data, String flag) {
         // this.socket, this.remoteAddress, this.remotePort
+        synchronized (lock) {
 
-        if (flag == "S") {
+            if (flag == "S") {
 
-        } else if (flag == "A") {
+            } else if (flag == "A") {
 
-        } else if (flag == "F") {
+            } else if (flag == "F") {
 
-        } else if (flag == "D") {
-            this.sequenceNumber += data.length;
-            this.totalDataTransferred += data.length;
+            } else if (flag == "D") {
+                this.sequenceNumber += data.length;
+                this.totalDataTransferred += data.length;
+            }
         }
     }
 
@@ -196,36 +197,40 @@ public class Sender {
      */
 
     private void handlePacket(String flag, byte[] recvPacketData) {
-        this.totalPacketsReceived += 1;
-        this.totalDataReceived += extractLength(recvPacketData);
+        synchronized (lock) {
 
-        if (flag == "SA" || flag == "FA") {
-            String flagList = "- - - -";
+            this.totalPacketsReceived += 1;
+            this.totalDataReceived += extractLength(recvPacketData);
 
-            if (flag == "SA") {
-                flagList = "S A - -";
-            } else if (flag == "FA") {
-                flagList = "- A F -";
-            }
+            if (flag == "SA" || flag == "FA") {
+                String flagList = "- - - -";
 
-            this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
+                if (flag == "SA") {
+                    flagList = "S A - -";
+                } else if (flag == "FA") {
+                    flagList = "- A F -";
+                }
 
-            this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
 
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "A");
-        } else if (flag == "A") {
-            outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
+                this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                this.sequenceNumber += 1;
 
-            int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
-
-            // Check if we are done
-            if (recvAckNUm == this.fileSize) {
                 byte[] empty_data = new byte[0];
-                this.sendPacket(empty_data, "F");
-            }
+                this.sendPacket(empty_data, "A");
+            } else if (flag == "A") {
+                outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
-            // TODO: implement go-back-N?
+                int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
+
+                // Check if we are done
+                if (recvAckNUm == this.fileSize) {
+                    byte[] empty_data = new byte[0];
+                    this.sendPacket(empty_data, "F");
+                }
+
+                // TODO: implement go-back-N?
+            }
         }
     }
 
