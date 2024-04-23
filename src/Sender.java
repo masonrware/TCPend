@@ -185,7 +185,7 @@ public class Sender {
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList) throws IOException {
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
-        socket.send(packet);
+        this.socket.send(packet);
 
         this.totalPacketsSent += 1;
 
@@ -201,6 +201,9 @@ public class Sender {
     // that
 
     private void handlePacket(String flag, byte[] recvPacketData) {
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += extractLength(recvPacketData);
+
         if (flag == "SA" || flag == "FA") {
             String flagList = "- - - -";
 
@@ -214,18 +217,12 @@ public class Sender {
 
             this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
 
-            this.totalPacketsReceived += 1;
-            this.totalDataReceived += extractLength(recvPacketData);
-
             byte[] empty_data = new byte[0];
             this.sendPacket(empty_data, "A");
         } else if (flag == "A") {
             outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
             int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
-
-            this.totalPacketsReceived += 1;
-            this.totalDataReceived += extractLength(recvPacketData);
 
             // Check if we are done
             if (recvAckNUm == this.fileSize) {

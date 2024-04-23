@@ -40,7 +40,7 @@ public class TCPend {
 
             Receiver receiver = new Receiver(port, mtu, sws, fileName);
 
-            receiver.startHost();
+            receiver.start();
 
             // Listen
         }
