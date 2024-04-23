@@ -109,7 +109,7 @@ public class Receiver {
     }
 
     private void sendACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
-
+        byte[] ackHdr = createHeader(0, 0b100);
     }
 
     private void sendSYNACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
@@ -132,7 +132,7 @@ public class Receiver {
             dataOutputStream.writeInt(this.sequenceNumber); 
             dataOutputStream.writeInt(this.ackNumber); 
             dataOutputStream.writeLong(System.nanoTime()); 
-            dataOutputStream.writeInt((length << 3) | afs);
+            dataOutputStream.writeInt(length | (afs << 13)); // zero out most significant bits, or check that length is smaller than 2^13?
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
