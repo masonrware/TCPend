@@ -180,8 +180,7 @@ public class Sender {
      */
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList)
-            throws IOException {
+    private void sendUDPPacket(byte[] data, String flagList) throws IOException {
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         socket.send(packet);
 
@@ -221,11 +220,7 @@ public class Sender {
     private void handleSYNCHACK(String flagList, byte[] recvPacketData) {
         outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
 
-        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
-
-        this.ackNumber = recvSeqNum + 1;
-        this.sequenceNumber = recvAckNum;
+        this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
 
         this.totalPacketsReceived += 1;
         this.totalDataReceived += extractLength(recvPacketData);
