@@ -21,9 +21,11 @@ public class Receiver {
 
     private int port;
     private int mtu;
+    private int remotePort;
     private int sws;
     private String fileName;
     private DatagramSocket socket;
+    private InetAddress remoteAddress;
     private byte[] buffer;
 
     public Receiver(int p, int m, int s, String fname) {
@@ -44,131 +46,104 @@ public class Receiver {
      * STARTUP CODE
      */
 
-    public void startHost() {
+    public void start() {
         this.startThreads();
     }
 
     private void startThreads() {
         Thread receiverThread = new Thread(() -> {
-            try {
-                this.receivingThreadFunc();
-            } catch (IOException e) {
-                e.printStackTrace();
+            // Receive forever (until we get a FIN)
+            while (true) {
+                try {
+                    // Receive a TCP Packet (for handshake)
+                    DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
+                    this.socket.receive(inboundPacket); // blocking!
+
+                    // These should not be class-based because they might (won't) come from
+                    // different sources
+                    this.remoteAddress = inboundPacket.getAddress();
+                    this.remotePort = inboundPacket.getPort();
+                    
+                    if (this.isSYN(inboundPacket.getData())) {
+                        this.sequenceNumber += 1;
+
+                        // Respond to Handshake
+                        this.handlePacket("S", inboundPacket.getData());
+                    } else if (this.isACK(inboundPacket.getData())) {
+                        // Handle the ack packet
+                        this.handlePacket("A", inboundPacket.getData());
+                    } else if (this.isFIN(inboundPacket.getData())) {
+                        // Respond to a FIN with a FINACK
+                        this.handlePacket("F", inboundPacket.getData());
+                    } else if (this.isDATA(inboundPacket.getData())) {
+                        // Handle the DATA packet
+                        this.handlePacket("D", inboundPacket.getData());
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         });
 
         receiverThread.start();
     }
 
-    private void receivingThreadFunc() throws IOException {
-        // Receive forever (until we get a FIN)
-        while (true) {
-            try {
-                // Receive a TCP Packet (for handshake)
-                DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
-                this.socket.receive(inboundPacket); // blocking!
-
-                // These should not be class-based because they might (won't) come from
-                // different sources
-                InetAddress senderIP = inboundPacket.getAddress();
-                int senderPort = inboundPacket.getPort();
-
-                if (this.isSYN(inboundPacket.getData())) {
-                    this.sequenceNumber += 1;
-
-                    // Respond to Handshake
-                    this.handleSYN(inboundPacket.getData(), senderIP, senderPort);
-                } else if (this.isACK(inboundPacket.getData())) {
-                    // Handle the ack packet
-                    this.handleACK(inboundPacket.getData(), senderIP, senderPort);
-                } else if (this.isFIN(inboundPacket.getData())) {
-                    // Respond to a FIN with a FINACK
-                    this.handleFIN(inboundPacket.getData(), senderIP, senderPort);
-                } else if (this.isDATA(inboundPacket.getData())) {
-                    // Handle the DATA packet
-                    this.handleDATA(inboundPacket.getData(), senderIP, senderPort);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
     /*
      * SENDERS
      */
 
+    private void sendPacket(byte[] data, String flag) {
+        if (flag == "A") {
+
+        } else if (flag == "SA") {
+
+        } else if (flag == "FA") {
+
+        }
+    }
+
     // Method to send UDP packet
-    private void sendUDPPacket(InetAddress receiverIP, int receiverPort, byte[] data,
-            String flagList) throws IOException {
-        DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
+    private void sendUDPPacket(byte[] data, String flagList) throws IOException {
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         this.socket.send(packet);
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, data.length);
     }
 
-    private void sendACK(InetAddress senderIP, int senderPort) {
-        byte[] ackHdr = createHeader(HEADER_SIZE, 0b100);
-        try{
-            sendUDPPacket(senderIP, senderPort, ackHdr, "- A - -");
-        }
-        catch (IOException e){
-            e.printStackTrace();
-        }
-    }
-
-    private void sendSYNACK(InetAddress senderIP, int senderPort) {
-
-    }
-
-    private void sendFINACK(InetAddress senderIP, int senderPort) {
-        // TODO close connection?
-    }
-
     /*
      * HANDLERS
      */
 
-    // Method to handle a SYN packet
-    private void handleSYN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
-        this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
-
+    private void handlePacket(String flag, byte[] recvPacketData) {
         this.totalPacketsReceived += 1;
+        this.totalDataReceived += extractLength(recvPacketData);
 
-        this.sendSYNACK(senderIP, senderPort);
-    }
+        if (flag == "S") {
+            this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+            
+            byte[] empty_data = new byte[0];
+            this.sendPacket(empty_data, "SA");
+        } else if (flag == "A") {
+            this.ackNumber = this.extractSequenceNumber(recvPacketData);
 
-    // Method to handle ACK reception
-    private void handleACK(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
-        this.ackNumber = this.extractSequenceNumber(recvPacketData);
+        } else if (flag == "F") {
+            this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
 
-        this.totalPacketsReceived += 1;
-    }
-
-    // Method to handle FIN reception
-    private void handleFIN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
-        this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
-
-        this.totalPacketsReceived += 1;
-
-        this.sendFINACK(senderIP, senderPort);
-    }
-
-    // Method to handle received data segment
-    private void handleDATA(byte[] recvPacketData, InetAddress senderIP, int senderPort) throws IOException {
-        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+            
+            byte[] empty_data = new byte[0];
+            this.sendPacket(empty_data, "FA");
+        } else if (flag == "D") {
+            int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         
-        // Only update ackNumber if received packet is continuous
-        if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
-            this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+            // Only update ackNumber if received packet is continuous
+            if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
+                this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+            }
+            
+            byte[] empty_data = new byte[0];
+            this.sendPacket(empty_data, "A");
         }
-
-        // Should we be doing this regardless?
-        this.totalPacketsReceived += 1;
-        this.totalDataReceived += this.extractLength(recvPacketData);
-
-        this.sendACK(senderIP, senderPort);
     }
 
     /*
