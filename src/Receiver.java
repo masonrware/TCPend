@@ -191,4 +191,13 @@ public class Receiver {
         return ((flags & 0b0010) == 0b0010);
     }
 
+    // Finish this, check for data length != 0
+    private boolean isDATA(byte[] data) {
+        System.out.println("isDATA");
+        // int dataLength = 
+        // return ((flags & 0b0010) == 0b0010);
+
+        // How to get size of data?
+    }
+
 }
