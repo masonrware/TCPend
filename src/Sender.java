@@ -92,7 +92,7 @@ public class Sender {
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
                     // Send data segment
-                    this.sendPacket(data, "D");
+                    this.sendPacket(data, 0b000, "- - - D");
                 }
 
                 fileInputStream.close();
@@ -136,7 +136,7 @@ public class Sender {
             byte[] empty_data = new byte[0];
 
             // Send SYN packet
-            this.sendPacket(empty_data, "S");
+            this.sendPacket(empty_data, 0b001, "S - - -");
 
             // Wait for SYN-ACK from receiver
             DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
@@ -165,19 +165,37 @@ public class Sender {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, String flag) {
+    private void sendPacket(byte[] data, int flagNum, String flag) {
         // this.socket, this.remoteAddress, this.remotePort
 
-        if (flag == "S") {
-
-        } else if (flag == "A") {
-
-        } else if (flag == "F") {
-
-        } else if (flag == "D") {
+        if ((flagNum & 0x00) == 0x00) {      // Data transfer, need to attach payload
+            flagNum &= 0b100;               // Add ACK flag
             this.sequenceNumber += data.length;
             this.totalDataTransferred += data.length;
+
+            byte[] dataPkt = new byte[HEADER_SIZE + data.length];
+            byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
+
+            System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
+            System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
+
+            int checksum = getChecksum(dataPkt);
+
+            dataPkt[22] = (byte)(checksum & 0xFF);
+            dataPkt[23] = (byte)((checksum >> 8) & 0xFF);
+
+            try{
+                sendUDPPacket(dataPkt, flag);
+            }
+            catch (IOException e){
+                e.printStackTrace();
+            }
         }
+        else {                  // Non data transfer, only need header
+
+        }
+
+
     }
 
     // Method to send UDP packet
@@ -213,16 +231,18 @@ public class Sender {
             this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
 
             byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "A");
+            this.sendPacket(empty_data, 0b100, flagList);
         } else if (flag == "A") {
-            outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
+            String flagList = "- A - -";
+
+            outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
 
             int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
 
             // Check if we are done
             if (recvAckNUm == this.fileSize) {
                 byte[] empty_data = new byte[0];
-                this.sendPacket(empty_data, "F");
+                this.sendPacket(empty_data, 0b010, flagList);
             }
 
             // TODO: implement go-back-N?
@@ -243,6 +263,73 @@ public class Sender {
         Date date = new Date();
         System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, this.sequenceNumber, numBytes,
                 this.ackNumber);
+    }
+
+    private byte[] createHeader(int length, int afs) {
+        // seqnum and acknum are globals, get length and afs from cmd line
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+        try {
+            // Create a DataOutputStream to write data to the ByteArrayOutputStream
+            DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
+
+            // Write different data types to the byte array
+            dataOutputStream.writeInt(this.sequenceNumber);
+            dataOutputStream.writeInt(this.ackNumber);
+            dataOutputStream.writeLong(System.nanoTime());
+            dataOutputStream.writeInt((length << 3) | afs);
+            dataOutputStream.writeInt(0);
+
+            // Close the DataOutputStream
+            dataOutputStream.close();
+
+            // Get the byte array
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+
+            int checksum = getChecksum(byteArray);
+
+            byteArray[22] = (byte)(checksum & 0xFF);
+            byteArray[23] = (byte)((checksum >> 8) & 0xFF);
+
+            return byteArray;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null; // is this fine?
+        }
+
+    }
+
+    private int getChecksum(byte[] data) {
+        int sum = 0;
+        int carry = 0;
+
+        // Pad the data with 0x00 if the length is odd
+        byte[] paddedData = data.length % 2 == 0 ? data : Arrays.copyOf(data, data.length + 1);
+
+        // Calculate the sum of 16-bit segments
+        for (int i = 0; i < paddedData.length; i += 2) {
+            int segment = ((paddedData[i] & 0xFF) << 8) | (paddedData[i + 1] & 0xFF);
+            sum += segment;
+            if ((sum & 0xFFFF0000) != 0) {
+                sum &= 0xFFFF;
+                carry++;
+            }
+        }
+
+        // Add carry to the least significant bit
+        while (carry > 0) {
+            sum++;
+            if ((sum & 0xFFFF0000) != 0) {
+                sum &= 0xFFFF;
+                carry++;
+            } else {
+                break;
+            }
+        }
+
+        // Flip all 16 bits to get the checksum
+        return ~sum & 0xFFFF;
     }
 
     private int extractSequenceNumber(byte[] header) {
