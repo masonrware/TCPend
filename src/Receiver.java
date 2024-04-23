@@ -230,7 +230,7 @@ public class Receiver {
     }
 
     private boolean isDATA(byte[] data) {
-        System.out.println("isDATA");
+        System.out.println("isDATA: " + extractDataLength(data));
         return (extractDataLength(data) > 0);
     }
 
