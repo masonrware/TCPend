@@ -70,7 +70,6 @@ public class Receiver {
                     this.remotePort = inboundPacket.getPort();
 
                     // TODO: handle checksum!!!
-
                     if (this.isACK(inboundPacket.getData())) {
                         // Handle the ack packet
                         this.handlePacket("A", inboundPacket.getData());
