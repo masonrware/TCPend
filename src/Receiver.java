@@ -78,16 +78,16 @@ public class Receiver {
 
                 if (this.isSYN(inboundPacket.getData())) {
                     // Respond to Handshake
-                    this.handleSYN(senderIP, senderPort);
+                    this.handleSYN(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isACK(inboundPacket.getData())) {
                     // Handle the ack packet
-                    this.handleACK(this.socket, senderIP, senderPort);
+                    this.handleACK(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isFIN(inboundPacket.getData())) {
                     // Respond to a FIN with a FINACK
-                    this.handleFIN(this.socket, senderIP, senderPort);
+                    this.handleFIN(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isDATA(inboundPacket.getData())) {
                     // Handle the DATA packet
-                    this.handleDATA(this.socket, senderIP, senderPort);
+                    this.handleDATA(inboundPacket.getData(), senderIP, senderPort);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -108,15 +108,15 @@ public class Receiver {
         outputSegmentInfo("snd", flagList, data.length);
     }
 
-    private void sendACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendACK(InetAddress senderIP, int senderPort) {
 
     }
 
-    private void sendSYNACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendSYNACK(InetAddress senderIP, int senderPort) {
 
     }
 
-    private void sendFINACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendFINACK(InetAddress senderIP, int senderPort) {
 
     }
 
@@ -136,18 +136,32 @@ public class Receiver {
 
 
     // Method to handle a SYN packet only if we haven't received any packets (handshake)
-    private void handleSYN(InetAddress senderIP, int senderPort) {
+    private void handleSYN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
         if(totalPacketsReceived != 0) {
             return;
-        }  
+        }
 
-        // Increment total packet count
-        totalPacketsReceived += 1;
-        this.sendSYNACK(socket, senderIP, senderPort);
+        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
+
+        this.ackNumber = recvSeqNum + 1;
+        this.sequenceNumber = recvAckNum;
+
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += extractLength(recvPacketData);
+
+        this.sendSYNACK(senderIP, senderPort);
     }
 
     // Method to handle ACK reception
-    private void handleACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void handleACK(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
+        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
+
+        this.ackNumber = recvSeqNum + extractLength(recvPacketData);
+        this.sequenceNumber = recvAckNum;
+
+
         // pseudo code for handlingACK here:
 
         /*
@@ -157,7 +171,7 @@ public class Receiver {
     }
 
     // Method to handle FIN reception
-    private void handleFIN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void handleFIN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
         // pseudo code for handleFIN here:
 
         /*
@@ -169,7 +183,7 @@ public class Receiver {
     }
 
     // Method to handle received data segment
-    private void handleDATA(DatagramSocket socket, InetAddress senderIP, int senderPort) throws IOException {
+    private void handleDATA(byte[] recvPacketData, InetAddress senderIP, int senderPort) throws IOException {
         // pseudo code for handleDATA here:
 
         /*
@@ -221,7 +235,7 @@ public class Receiver {
                (long)(header[8] & 0xFF);
     }
 
-    private int extractDataLength(byte[] header) { 
+    private int extractLength(byte[] header) { 
         // Must disregard last 3 bits (SFA flags)
         return (header[19] & 0x1F) << 24 |
                (header[18] & 0xFF) << 16 |

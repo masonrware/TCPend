@@ -131,8 +131,6 @@ public class Sender {
 
             // TODO: handle checksum!!!
 
-            // TODO: need the inboundPacket to be of accurate length -- NOT mtu
-
             // Handle different types of inbound packets
             if (isFINACK(inboundPacket.getData())) {
                 this.handleFINACK(inboundPacket.getData());
@@ -220,7 +218,7 @@ public class Sender {
     // that
 
     private void handleSYNACK(byte[] recvPacketData) {
-        outputSegmentInfo("rcv", "S A - -", recvPacketData.length);
+        outputSegmentInfo("rcv", "S A - -", extractLength(recvPacketData));
 
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
@@ -229,7 +227,7 @@ public class Sender {
         this.sequenceNumber = recvAckNum;
 
         this.totalPacketsReceived += 1;
-        this.totalDataReceived += recvPacketData.length;
+        this.totalDataReceived += extractLength(recvPacketData);
 
         byte[] empty_data = new byte[0];
         this.sendACK(empty_data);
@@ -237,7 +235,7 @@ public class Sender {
 
     // Method to handle FIN segment and close connection
     private void handleFINACK(byte[] recvPacketData) {
-        outputSegmentInfo("rcv", "- A F -", recvPacketData.length);
+        outputSegmentInfo("rcv", "- A F -", extractLength(recvPacketData));
 
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
@@ -246,7 +244,7 @@ public class Sender {
         this.sequenceNumber = recvAckNum;
 
         this.totalPacketsReceived += 1;
-        this.totalDataReceived += recvPacketData.length;
+        this.totalDataReceived += extractLength(recvPacketData);
 
         byte[] empty_data = new byte[0];
         this.sendFIN(empty_data);
@@ -254,13 +252,13 @@ public class Sender {
 
     // Method to handle ACK reception
     private void handleACK(byte[] recvPacketData) {
-        outputSegmentInfo("rcv", "- A - -", recvPacketData.length);
+        outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
         int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
 
         this.totalPacketsReceived += 1;
-        this.totalDataReceived += recvPacketData.length;
-        
+        this.totalDataReceived += extractLength(recvPacketData);
+
         // Check if we are done
         if (recvAckNUm == this.fileSize) {
             byte[] empty_data = new byte[0];
@@ -311,7 +309,7 @@ public class Sender {
                (long)(header[8] & 0xFF);
     }
 
-    private int extractDataLength(byte[] header) { // 0001 1111
+    private int extractLength(byte[] header) { // 0001 1111
         return (header[19] & 0x1F) << 24 |
                (header[18] & 0xFF) << 16 |
                (header[17] & 0xFF) << 8 |
