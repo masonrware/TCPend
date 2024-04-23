@@ -180,15 +180,15 @@ public class Sender {
      */
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList, InetAddress receiverIP, int receiverPort)
+    private void sendUDPPacket(byte[] data, String flagList)
             throws IOException {
-        DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         socket.send(packet);
 
         this.totalPacketsSent += 1;
 
         // Output information about the sent packet
-        outputSegmentInfo(flagList, data.length);
+        outputSegmentInfo("snd", flagList, data.length);
     }
 
     private void sendSYN(byte[] data) {

@@ -170,7 +170,10 @@ public class Receiver {
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
         
-        this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+        // Only update ackNumber if received packet is continuous
+        if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
+            this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+        }
 
         // pseudo code for handleDATA here:
 
