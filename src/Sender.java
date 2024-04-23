@@ -134,7 +134,7 @@ public class Sender {
             byte[] empty_data = new byte[0];
             synchronized (lock) {
                 // Send SYN packet
-                this.sendPacket(empty_data, "S");
+                this.sendPacket(empty_data, 0b001, "S - - -");
 
                 // Wait for SYN-ACK from receiver
                 DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
@@ -218,13 +218,17 @@ public class Sender {
             this.totalPacketsReceived += 1;
             this.totalDataReceived += extractLength(recvPacketData);
 
+            int flagNum = 0;
+
             if (flag == "SA" || flag == "FA") {
                 String flagList = "- - - -";
 
                 if (flag == "SA") {
                     flagList = "S A - -";
+                    flagNum |= 0b101;
                 } else if (flag == "FA") {
                     flagList = "- A F -";
+                    flagNum |= 0b110;
                 }
 
                 this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
@@ -233,7 +237,7 @@ public class Sender {
                 this.sequenceNumber += 1;
 
                 byte[] empty_data = new byte[0];
-                this.sendPacket(empty_data, "A");
+                this.sendPacket(empty_data, flagNum, flagList);
             } else if (flag == "A") {
                 outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
@@ -241,8 +245,9 @@ public class Sender {
 
                 // Check if we are done
                 if (recvAckNUm == this.fileSize) {
+                    flagNum |= 0b010;
                     byte[] empty_data = new byte[0];
-                    this.sendPacket(empty_data, "F");
+                    this.sendPacket(empty_data, flagNum, "- - F -");
                 }
 
                 // TODO: implement go-back-N?
