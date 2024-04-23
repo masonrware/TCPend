@@ -120,11 +120,69 @@ public class Receiver {
 
     }
 
-    private byte[] createHeader(int seqNum, int ackNum, int length, int syn, int fin, int ack){
+    private byte[] createHeader(int length, int afs){
+        // seqnum and acknum are globals, get length and afs from cmd line
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
+        try {
+            // Create a DataOutputStream to write data to the ByteArrayOutputStream
+            DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
 
-        return null;
+            // Write different data types to the byte array
+            dataOutputStream.writeInt(this.sequenceNumber); 
+            dataOutputStream.writeInt(this.ackNumber); 
+            dataOutputStream.writeLong(System.nanoTime()); 
+            dataOutputStream.writeInt((length << 3) | afs);
+            dataOutputStream.writeInt(0);
+
+            // Close the DataOutputStream
+            dataOutputStream.close();
+
+            // Get the byte array
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+
+            // Print the byte array
+            return byteArray;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+        
     }
+
+    private int getChecksum(byte[] data){
+        int sum = 0;
+        int carry = 0;
+
+        // Pad the data with 0x00 if the length is odd
+        byte[] paddedData = data.length % 2 == 0 ? data : Arrays.copyOf(data, data.length + 1);
+
+        // Calculate the sum of 16-bit segments
+        for (int i = 0; i < paddedData.length; i += 2) {
+            int segment = ((paddedData[i] & 0xFF) << 8) | (paddedData[i + 1] & 0xFF);
+            sum += segment;
+            if ((sum & 0xFFFF0000) != 0) {
+                sum &= 0xFFFF;
+                carry++;
+            }
+        }
+
+        // Add carry to the least significant bit
+        while (carry > 0) {
+            sum++;
+            if ((sum & 0xFFFF0000) != 0) {
+                sum &= 0xFFFF;
+                carry++;
+            } else {
+                break;
+            }
+        }
+
+        // Flip all 16 bits to get the checksum
+        return ~sum & 0xFFFF;
+    }
+    
     
 
     /*
