@@ -215,6 +215,8 @@ public class Sender {
     // that
 
     private void handleSYNACK(byte[] recvPacketData) {
+        outputSegmentInfo("rcv", "S A - -", recvPacketData.length);
+
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
 
@@ -227,6 +229,8 @@ public class Sender {
 
     // Method to handle FIN segment and close connection
     private void handleFINACK(byte[] recvPacketData) {
+        outputSegmentInfo("rcv", "- A F -", recvPacketData.length);
+
         int recvSeqNum = this.extractSequenceNumber(recvPacketData);
         int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
 
@@ -239,6 +243,8 @@ public class Sender {
 
     // Method to handle ACK reception
     private void handleACK(byte[] recvPacketData) {
+        outputSegmentInfo("rcv", "- A - -", recvPacketData.length);
+
         int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
 
         // Check if we are done
@@ -260,11 +266,10 @@ public class Sender {
     }
 
     // Method to output segment information
-    private void outputSegmentInfo(String flagList, int numBytes) {
+    private void outputSegmentInfo(String action, String flagList, int numBytes) {
         Date date = new Date();
-        // Need both snd and rcv ability
-        System.out.printf("%d snd %s %d %s %d %d %d\n", date.getTime(), flagList, this.sequenceNumber, numBytes,
-                this.ackNumber);
+        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, this.sequenceNumber, numBytes,
+            this.ackNumber);
     }
 
     private int extractSequenceNumber(byte[] header) {
