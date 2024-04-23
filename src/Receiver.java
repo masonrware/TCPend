@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.*;
 
 public class Receiver {
-    private static final String[] FLAGS = { "-", "S", "A", "F", "D" };
     private static final int HEADER_SIZE = 24 * Byte.SIZE;
 
     // Variables to track statistics
@@ -51,6 +50,13 @@ public class Receiver {
     }
 
     private void startThreads() {
+        // Attempt handshake
+        try {
+            this.handshake();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         Thread receiverThread = new Thread(() -> {
             // Receive forever (until we get a FIN)
             while (true) {
@@ -58,18 +64,12 @@ public class Receiver {
                     // Receive a TCP Packet (for handshake)
                     DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
                     this.socket.receive(inboundPacket); // blocking!
-
-                    // These should not be class-based because they might (won't) come from
-                    // different sources
                     this.remoteAddress = inboundPacket.getAddress();
                     this.remotePort = inboundPacket.getPort();
-                    
-                    if (this.isSYN(inboundPacket.getData())) {
-                        this.sequenceNumber += 1;
 
-                        // Respond to Handshake
-                        this.handlePacket("S", inboundPacket.getData());
-                    } else if (this.isACK(inboundPacket.getData())) {
+                    // TODO: handle checksum!!!
+                    
+                    if (this.isACK(inboundPacket.getData())) {
                         // Handle the ack packet
                         this.handlePacket("A", inboundPacket.getData());
                     } else if (this.isFIN(inboundPacket.getData())) {
@@ -88,18 +88,54 @@ public class Receiver {
         receiverThread.start();
     }
 
+    private void handshake() throws IOException {
+        try {
+            DatagramPacket synPacket = new DatagramPacket(this.buffer, this.buffer.length);
+            this.socket.receive(synPacket); // blocking !
+
+            if (this.isSYN(synPacket.getData())) {
+                this.sequenceNumber += 1;
+
+                this.handlePacket("S", synPacket.getData());
+            } else {
+                throw new IOException("Handshake Failed -- did not receive SYN packet from sender.");
+            }
+
+            DatagramPacket ackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+            this.socket.receive(ackPacket); // blocking !
+
+            if (this.isACK(ackPacket.getData())) {
+                if(this.extractAcknowledgmentNumber(ackPacket.getData()) == this.sequenceNumber+1) {
+                    this.handlePacket("S", synPacket.getData());
+                }
+            } else {
+                throw new IOException("Handshake Failed -- did not receive correct ACK from sender.");
+            }
+
+            // Only increment total packet count if handshake succeeds
+            totalPacketsSent += 2;
+        }  catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     /*
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, String flag) {
-        if (flag == "A") {
+    private void sendPacket(int flagNum, String flagStr) {
+        byte[] hdr = createHeader(HEADER_SIZE, flagNum);
+        int checksum = getChecksum(hdr);
+        hdr[22] = (byte)(checksum & 0xFF);
+        hdr[23] = (byte)((checksum >> 8) & 0xFF);
 
-        } else if (flag == "SA") {
-
-        } else if (flag == "FA") {
-
+        try {
+            sendUDPPacket(hdr, flagStr);
         }
+        catch (IOException e){
+            e.printStackTrace();
+        }
+        
     }
 
     // Method to send UDP packet
@@ -112,37 +148,49 @@ public class Receiver {
     }
 
     /*
-     * HANDLERS
+     * HANDLER
      */
 
     private void handlePacket(String flag, byte[] recvPacketData) {
         this.totalPacketsReceived += 1;
         this.totalDataReceived += extractLength(recvPacketData);
 
-        if (flag == "S") {
+        String flagList = "- - - -";
+        int flagNum = 0;
+
+        if (flag == "S" || flag == "F") {
+            if(flag == "S") {
+                flagList = "S - - -";
+                flagNum |= 0b101;     // SYNACK
+            } else if (flag == "F") {
+                flagList = "- - F -";
+                flagNum |= 0b110;     // FINACK
+            }
+
+            this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
+
             this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
             
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "SA");
+            // byte[] empty_data = new byte[0];
+            this.sendPacket(flagNum, flagList); // send an ACK
         } else if (flag == "A") {
+            this.outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
+
             this.ackNumber = this.extractSequenceNumber(recvPacketData);
 
-        } else if (flag == "F") {
-            this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
-
-            
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "FA");
         } else if (flag == "D") {
+            this.outputSegmentInfo("rcv", "- - - D", extractLength(recvPacketData));
+
             int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+            flagNum |= 0b100;     // ACK
         
             // Only update ackNumber if received packet is continuous
             if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
                 this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
             }
             
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data, "A");
+            // byte[] empty_data = new byte[0];
+            this.sendPacket(flagNum, flagList);
         }
     }
 
