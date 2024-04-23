@@ -26,7 +26,7 @@ public class Receiver {
     private DatagramSocket socket;
     private byte[] buffer;
 
-    public Receiver(int p, int m, int s, String fname){
+    public Receiver(int p, int m, int s, String fname) {
         this.port = p;
         this.mtu = m;
         this.sws = s;
@@ -60,38 +60,37 @@ public class Receiver {
         receiverThread.start();
     }
 
-    // private void sendMessages(int port, String remoteIP, int remotePort, String fileName, int mtu, int sws) throws IOException {
-    //     // TODO -- how to send packets indefinitely??
-    // }
-
     private void receivingThreadFunc() throws IOException {
         // Receive forever (until we get a FIN)
-        while(true) {
+        while (true) {
             try {
                 // Receive a TCP Packet (for handshake)
                 DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
-                socket.receive(inboundPacket); // blocking!
+                this.socket.receive(inboundPacket); // blocking!
 
-                // These should not be class-based because they might (won't) come from different sources
+                // These should not be class-based because they might (won't) come from
+                // different sources
                 InetAddress senderIP = inboundPacket.getAddress();
                 int senderPort = inboundPacket.getPort();
 
                 if (this.isSYN(inboundPacket.getData())) {
+                    this.sequenceNumber += 1;
+
                     // Respond to Handshake
-                    this.handleSYN(this.socket, senderIP, senderPort);
+                    this.handleSYN(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isACK(inboundPacket.getData())) {
                     // Handle the ack packet
-                    this.handleACK(this.socket, senderIP, senderPort);
+                    this.handleACK(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isFIN(inboundPacket.getData())) {
                     // Respond to a FIN with a FINACK
-                    this.handleFIN(this.socket, senderIP, senderPort);
+                    this.handleFIN(inboundPacket.getData(), senderIP, senderPort);
                 } else if (this.isDATA(inboundPacket.getData())) {
                     // Handle the DATA packet
-                    this.handleDATA(this.socket, senderIP, senderPort);
+                    this.handleDATA(inboundPacket.getData(), senderIP, senderPort);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            }  
+            }
         }
     }
 
@@ -100,27 +99,106 @@ public class Receiver {
      */
 
     // Method to send UDP packet
-    private void sendUDPPacket(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data, String flagList) throws IOException {
+    private void sendUDPPacket(DatagramSocket socket, InetAddress receiverIP, int receiverPort, byte[] data,
+            String flagList) throws IOException {
         DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
         socket.send(packet);
 
         // Output information about the sent packet
-        outputSegmentInfo(flagList, sequenceNumber, data.length, -1);
+        outputSegmentInfo("snd", flagList, data.length);
     }
 
-    private void sendACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
-        byte[] ackHdr = createHeader(0, 0b100);
-    }
-
-    private void sendSYNACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendACK(InetAddress senderIP, int senderPort) {
 
     }
 
-    private void sendFINACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void sendSYNACK(InetAddress senderIP, int senderPort) {
 
     }
 
-    private byte[] createHeader(int length, int afs){
+    private void sendFINACK(InetAddress senderIP, int senderPort) {
+
+    }
+
+    /*
+     * HANDLERS
+     */
+
+    // Method to handle a SYN packet
+    private void handleSYN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
+        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
+
+        this.ackNumber = recvSeqNum + 1;
+        this.sequenceNumber = recvAckNum;
+
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += extractLength(recvPacketData);
+
+        this.sendSYNACK(senderIP, senderPort);
+    }
+
+    // Method to handle ACK reception
+    private void handleACK(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
+        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
+
+        this.ackNumber = recvSeqNum;
+        this.sequenceNumber = recvAckNum;
+
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += extractLength(recvPacketData);
+    }
+
+    // Method to handle FIN reception
+    private void handleFIN(byte[] recvPacketData, InetAddress senderIP, int senderPort) {
+
+
+
+        // pseudo code for handleFIN here:
+
+        /*
+         * 1. update seq + ack number
+         * 2. craft ack/fin packet (set A+F flags)
+         * 3. serialize to bytes array and send ack/fin packet via UDP
+         * 4. close connection?
+         */
+    }
+
+    // Method to handle received data segment
+    private void handleDATA(byte[] recvPacketData, InetAddress senderIP, int senderPort) throws IOException {
+        int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+        int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
+        
+        this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+
+        // pseudo code for handleDATA here:
+
+        /*
+         * 1. update seq + ack number
+         * 2. write data to buffer or file?? -- need to alter args
+         * 3. craft ack packet (set A flags)
+         * 4. serialize to bytes array and send ack packet via UDP
+         */
+    }
+
+    /*
+     * MISC.
+     */
+
+    // Method to close the connection and print statistics
+    private void printStatistics() {
+        // Implement closing logic and print statistics here
+    }
+
+    // Method to output segment information
+    private void outputSegmentInfo(String action, String flagList, int numBytes) {
+        Date date = new Date();
+        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, this.sequenceNumber, numBytes,
+                this.ackNumber);
+    }
+
+    private byte[] createHeader(int length, int afs) {
         // seqnum and acknum are globals, get length and afs from cmd line
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
@@ -129,10 +207,10 @@ public class Receiver {
             DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
 
             // Write different data types to the byte array
-            dataOutputStream.writeInt(this.sequenceNumber); 
-            dataOutputStream.writeInt(this.ackNumber); 
-            dataOutputStream.writeLong(System.nanoTime()); 
-            dataOutputStream.writeInt(length | (afs << 13)); // zero out most significant bits, or check that length is smaller than 2^13?
+            dataOutputStream.writeInt(this.sequenceNumber);
+            dataOutputStream.writeInt(this.ackNumber);
+            dataOutputStream.writeLong(System.nanoTime());
+            dataOutputStream.writeInt((length << 3) | afs);
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
@@ -148,10 +226,10 @@ public class Receiver {
             e.printStackTrace();
             return null;
         }
-        
+
     }
 
-    private int getChecksum(byte[] data){
+    private int getChecksum(byte[] data) {
         int sum = 0;
         int carry = 0;
 
@@ -182,114 +260,43 @@ public class Receiver {
         // Flip all 16 bits to get the checksum
         return ~sum & 0xFFFF;
     }
-    
-    
-
-    /*
-     * HANDLERS
-     */
-
-
-    // TODO -- we also have to output for received packets, find out where to do that
-
-
-    // Method to handle a SYN packet only if we haven't received any packets (handshake)
-    private void handleSYN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
-        if(totalPacketsReceived != 0) {
-            return;
-        }  
-
-        // Increment total packet count
-        totalPacketsReceived += 1;
-        this.sendSYNACK(socket, senderIP, senderPort);
-    }
-
-    // Method to handle ACK reception
-    private void handleACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
-        // pseudo code for handlingACK here:
-
-        /*
-         * 1. update seq + ack number
-         * 2. silently do nothing
-         */
-    }
-
-    // Method to handle FIN reception
-    private void handleFIN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
-        // pseudo code for handleFIN here:
-
-        /*
-         * 1. update seq + ack number
-         * 2. craft ack/fin packet (set A+F flags)
-         * 3. serialize to bytes array and send ack/fin packet via UDP
-         * 4. close connection?
-         */
-    }
-
-    // Method to handle received data segment
-    private void handleDATA(DatagramSocket socket, InetAddress senderIP, int senderPort) throws IOException {
-        // pseudo code for handleDATA here:
-
-        /*
-         * 1. update seq + ack number
-         * 2. write data to buffer or file?? -- need to alter args
-         * 3. craft ack packet (set A flags)
-         * 4. serialize to bytes array and send ack packet via UDP
-         */
-    }
-
-    /*
-     * MISC.
-     */
-
-    // Method to close the connection and print statistics
-    private void printStatistics() {
-        // Implement closing logic and print statistics here
-    }
-    
-    // Method to output segment information
-    private void outputSegmentInfo(String flagList, int seqNumber, int numBytes, int ackNumber) {
-        Date date = new Date();
-        // Need both snd and rcv ability
-        System.out.printf("%d rcv %s %d %d %d\n", date.getTime(), flagList, seqNumber, numBytes, ackNumber);
-    }
 
     private int extractSequenceNumber(byte[] header) {
         return (header[3] & 0xFF) << 24 |
-               (header[2] & 0xFF) << 16 |
-               (header[1] & 0xFF) << 8 |
-               (header[0] & 0xFF);
+                (header[2] & 0xFF) << 16 |
+                (header[1] & 0xFF) << 8 |
+                (header[0] & 0xFF);
     }
 
     private int extractAcknowledgmentNumber(byte[] header) {
         return (header[7] & 0xFF) << 24 |
-               (header[6] & 0xFF) << 16 |
-               (header[5] & 0xFF) << 8 |
-               (header[4] & 0xFF);
+                (header[6] & 0xFF) << 16 |
+                (header[5] & 0xFF) << 8 |
+                (header[4] & 0xFF);
     }
 
     private long extractTimestamp(byte[] header) {
-        return (long)(header[15] & 0xFF) << 56 |
-               (long)(header[14] & 0xFF) << 48 |
-               (long)(header[13] & 0xFF) << 40 |
-               (long)(header[12] & 0xFF) << 32 |
-               (long)(header[11] & 0xFF) << 24 |
-               (long)(header[10] & 0xFF) << 16 |
-               (long)(header[9] & 0xFF) << 8 |
-               (long)(header[8] & 0xFF);
+        return (long) (header[15] & 0xFF) << 56 |
+                (long) (header[14] & 0xFF) << 48 |
+                (long) (header[13] & 0xFF) << 40 |
+                (long) (header[12] & 0xFF) << 32 |
+                (long) (header[11] & 0xFF) << 24 |
+                (long) (header[10] & 0xFF) << 16 |
+                (long) (header[9] & 0xFF) << 8 |
+                (long) (header[8] & 0xFF);
     }
 
-    private int extractDataLength(byte[] header) { 
+    private int extractLength(byte[] header) {
         // Must disregard last 3 bits (SFA flags)
         return (header[19] & 0x1F) << 24 |
-               (header[18] & 0xFF) << 16 |
-               (header[17] & 0xFF) << 8 |
-               (header[16] & 0xFF);
+                (header[18] & 0xFF) << 16 |
+                (header[17] & 0xFF) << 8 |
+                (header[16] & 0xFF);
     }
 
     private int extractChecksum(byte[] header) {
         return (header[23] & 0xFF) << 8 |
-               (header[22] & 0xFF);
+                (header[22] & 0xFF);
     }
 
     // byte 19 [ - | S | F | A ]
