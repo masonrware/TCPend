@@ -319,9 +319,9 @@ public class Sender {
         return ((flags & 0b1000) == 0b1000);
     }
 
-    private boolean isFIN(byte[] data) {
+    private boolean isFINACK(byte[] data) {
         int flags = (int) (data[19]);
-        System.out.println("isFIN: " + flags);
-        return ((flags & 0b0100) == 0b0100);
+        System.out.println("isFINACK: " + flags);
+        return ((flags & 0b1100) == 0b1100);
     }
 }

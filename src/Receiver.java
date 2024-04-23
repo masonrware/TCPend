@@ -119,6 +119,14 @@ public class Receiver {
     private void sendFINACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
 
     }
+
+    private byte[] createHeader(int seqNum, int ackNum, int length, int syn, int fin, int ack){
+
+
+        return null;
+    }
+
+    private 
     
 
     /*
