@@ -131,6 +131,8 @@ public class Sender {
 
             // TODO: handle checksum!!!
 
+            // TODO: need the inboundPacket to be of accurate length -- NOT mtu
+
             // Handle different types of inbound packets
             if (isFINACK(inboundPacket.getData())) {
                 this.handleFINACK(inboundPacket.getData());
@@ -185,6 +187,8 @@ public class Sender {
         DatagramPacket packet = new DatagramPacket(data, data.length, receiverIP, receiverPort);
         socket.send(packet);
 
+        this.totalPacketsSent += 1;
+
         // Output information about the sent packet
         outputSegmentInfo(flagList, data.length);
     }
@@ -205,6 +209,7 @@ public class Sender {
     private void sendDATA(byte[] data) {
         // this.socket, this.remoteAddress, this.remotePort
         this.sequenceNumber += data.length;
+        this.totalDataTransferred += data.length;
     }
 
     /*
@@ -223,6 +228,9 @@ public class Sender {
         this.ackNumber = recvSeqNum + 1;
         this.sequenceNumber = recvAckNum;
 
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += recvPacketData.length;
+
         byte[] empty_data = new byte[0];
         this.sendACK(empty_data);
     }
@@ -237,6 +245,9 @@ public class Sender {
         this.ackNumber = recvSeqNum + 1;
         this.sequenceNumber = recvAckNum;
 
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += recvPacketData.length;
+
         byte[] empty_data = new byte[0];
         this.sendFIN(empty_data);
     }
@@ -247,6 +258,9 @@ public class Sender {
 
         int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
 
+        this.totalPacketsReceived += 1;
+        this.totalDataReceived += recvPacketData.length;
+        
         // Check if we are done
         if (recvAckNUm == this.fileSize) {
             byte[] empty_data = new byte[0];

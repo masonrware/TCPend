@@ -78,7 +78,7 @@ public class Receiver {
 
                 if (this.isSYN(inboundPacket.getData())) {
                     // Respond to Handshake
-                    this.handleSYN(this.socket, senderIP, senderPort);
+                    this.handleSYN(senderIP, senderPort);
                 } else if (this.isACK(inboundPacket.getData())) {
                     // Handle the ack packet
                     this.handleACK(this.socket, senderIP, senderPort);
@@ -105,7 +105,7 @@ public class Receiver {
         socket.send(packet);
 
         // Output information about the sent packet
-        outputSegmentInfo(flagList, sequenceNumber, data.length, -1);
+        outputSegmentInfo("snd", flagList, data.length);
     }
 
     private void sendACK(DatagramSocket socket, InetAddress senderIP, int senderPort) {
@@ -125,8 +125,6 @@ public class Receiver {
 
         return null;
     }
-
-    private 
     
 
     /*
@@ -138,7 +136,7 @@ public class Receiver {
 
 
     // Method to handle a SYN packet only if we haven't received any packets (handshake)
-    private void handleSYN(DatagramSocket socket, InetAddress senderIP, int senderPort) {
+    private void handleSYN(InetAddress senderIP, int senderPort) {
         if(totalPacketsReceived != 0) {
             return;
         }  
@@ -192,10 +190,10 @@ public class Receiver {
     }
     
     // Method to output segment information
-    private void outputSegmentInfo(String flagList, int seqNumber, int numBytes, int ackNumber) {
+    private void outputSegmentInfo(String action, String flagList, int numBytes) {
         Date date = new Date();
-        // Need both snd and rcv ability
-        System.out.printf("%d rcv %s %d %d %d\n", date.getTime(), flagList, seqNumber, numBytes, ackNumber);
+        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, this.sequenceNumber, numBytes,
+            this.ackNumber);
     }
 
     private int extractSequenceNumber(byte[] header) {
