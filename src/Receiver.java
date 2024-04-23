@@ -123,8 +123,19 @@ public class Receiver {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data) {
+    private void sendPacket(int flagNum, String flagStr) {
+        byte[] hdr = createHeader(HEADER_SIZE, flagNum);
+        int checksum = getChecksum(hdr);
+        hdr[22] = (byte)(checksum & 0xFF);
+        hdr[23] = (byte)((checksum >> 8) & 0xFF);
 
+        try {
+            sendUDPPacket(hdr, flagStr);
+        }
+        catch (IOException e){
+            e.printStackTrace();
+        }
+        
     }
 
     // Method to send UDP packet
@@ -145,20 +156,23 @@ public class Receiver {
         this.totalDataReceived += extractLength(recvPacketData);
 
         String flagList = "- - - -";
+        int flagNum = 0;
 
         if (flag == "S" || flag == "F") {
             if(flag == "S") {
                 flagList = "S - - -";
+                flagNum |= 0b101;     // SYNACK
             } else if (flag == "F") {
                 flagList = "- - F -";
+                flagNum |= 0b110;     // FINACK
             }
 
             this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
 
             this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
             
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data);
+            // byte[] empty_data = new byte[0];
+            this.sendPacket(flagNum, flag); // send an ACK
         } else if (flag == "A") {
             this.outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
@@ -168,14 +182,15 @@ public class Receiver {
             this.outputSegmentInfo("rcv", "- - - D", extractLength(recvPacketData));
 
             int recvSeqNum = this.extractSequenceNumber(recvPacketData);
+            flagNum |= 0b100;     // ACK
         
             // Only update ackNumber if received packet is continuous
             if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
                 this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
             }
             
-            byte[] empty_data = new byte[0];
-            this.sendPacket(empty_data);
+            // byte[] empty_data = new byte[0];
+            this.sendPacket(flagNum, flag);
         }
     }
 
