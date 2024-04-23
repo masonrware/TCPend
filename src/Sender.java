@@ -268,22 +268,61 @@ public class Sender {
                 this.ackNumber);
     }
 
+    private int extractSequenceNumber(byte[] header) {
+        return (header[3] & 0xFF) << 24 |
+               (header[2] & 0xFF) << 16 |
+               (header[1] & 0xFF) << 8 |
+               (header[0] & 0xFF);
+    }
+
+    private int extractAcknowledgmentNumber(byte[] header) {
+        return (header[7] & 0xFF) << 24 |
+               (header[6] & 0xFF) << 16 |
+               (header[5] & 0xFF) << 8 |
+               (header[4] & 0xFF);
+    }
+
+    private long extractTimestamp(byte[] header) {
+        return (long)(header[15] & 0xFF) << 56 |
+               (long)(header[14] & 0xFF) << 48 |
+               (long)(header[13] & 0xFF) << 40 |
+               (long)(header[12] & 0xFF) << 32 |
+               (long)(header[11] & 0xFF) << 24 |
+               (long)(header[10] & 0xFF) << 16 |
+               (long)(header[9] & 0xFF) << 8 |
+               (long)(header[8] & 0xFF);
+    }
+
+    private int extractDataLength(byte[] header) { // 0001 1111
+        return (header[19] & 0x1F) << 24 |
+               (header[18] & 0xFF) << 16 |
+               (header[17] & 0xFF) << 8 |
+               (header[16] & 0xFF);
+    }
+
+    private int extractChecksum(byte[] header) {
+        return (header[23] & 0xFF) << 8 |
+               (header[22] & 0xFF);
+    }
+
+
+    // byte 19 [ - | S | F | A ]
     // For Handshake
     private boolean isSYNACK(byte[] data) {
-        // Check if the packet is a SYNACK packet
-        // Implement logic to check if the packet is a SYNACK packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isSYNACK: " + flags);
+        return ((flags & 0b1010) == 0b1010);
     }
 
     private boolean isACK(byte[] data) {
-        // Check if the packet is a ACK packet
-        // Implement logic to check if the packet is a ACK packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isACK: " + flags);
+        return ((flags & 0b1000) == 0b1000);
     }
 
     private boolean isFIN(byte[] data) {
-        // Check if the packet is a FIN packet
-        // Implement logic to check if the packet is a FIN packet
-        return true; // Placeholder, actual implementation depends on protocol
+        int flags = (int) (data[19]);
+        System.out.println("isFIN: " + flags);
+        return ((flags & 0b0100) == 0b0100);
     }
 }
