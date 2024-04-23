@@ -173,7 +173,7 @@ public class Sender {
                 this.totalDataTransferred += data.length;
 
                 byte[] dataPkt = new byte[HEADER_SIZE + data.length];
-                byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
+                byte[] dataHdr = createHeader(data.length, flagNum);
 
                 System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
                 System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
@@ -191,7 +191,18 @@ public class Sender {
                 }
             }
             else {                  // Non data transfer, only need header
+                byte[] dataHdr = createHeader(0, flagNum);
+                int checksum = getChecksum(dataHdr);
 
+                dataHdr[22] = (byte)(checksum & 0xFF);
+                dataHdr[23] = (byte)((checksum >> 8) & 0xFF);
+
+                try{
+                    sendUDPPacket(dataHdr, flag);
+                }
+                catch (IOException e){
+                    e.printStackTrace();
+                }
             }
         }
 

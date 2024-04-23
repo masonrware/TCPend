@@ -129,7 +129,7 @@ public class Receiver {
     private void sendPacket(int flagNum, String flagStr) {
         synchronized (lock) {
 
-            byte[] hdr = createHeader(HEADER_SIZE, flagNum);
+            byte[] hdr = createHeader(0, flagNum);
             int checksum = getChecksum(hdr);
             hdr[22] = (byte) (checksum & 0xFF);
             hdr[23] = (byte) ((checksum >> 8) & 0xFF);
