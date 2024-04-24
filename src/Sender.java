@@ -94,7 +94,10 @@ public class Sender {
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
                     // Send data segment
-                    this.sendPacket(data, DATA, "- - - D");
+                    String flagList = "- - - D";
+                    int flagNum = DATA;
+
+                    this.sendPacket(data, flagNum, flagList);
                 }
 
                 fileInputStream.close();
@@ -130,15 +133,18 @@ public class Sender {
         try {
             byte[] empty_data = new byte[0];
             synchronized (lock) {
+                String flagList = "S - - -";
+                int flagNum = SYN;
+
                 // Send SYN packet
-                this.sendPacket(empty_data, SYN, "S - - -");
+                this.sendPacket(empty_data, flagNum, flagList);
 
                 // Wait for SYN-ACK from receiver
                 DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(synackPacket); // blocking!
 
                 // Process SYN-ACK packet
-                if (this.isSYNACK(synackPacket.getData())) {
+                if (extractSYNFlag(synackPacket.getData()) && extractACKFlag(synackPacket.getData())) {
                     // Make sure the ack number is correct (syn+1)
                     if (this.extractAcknowledgmentNumber(synackPacket.getData()) == this.sequenceNumber + 1) {
                         // Handle the ack packet
@@ -162,25 +168,23 @@ public class Sender {
         synchronized (lock) {
             if (flagNum == DATA) {
                 flagNum &= ACK; // Add ACK flag
+            }
+            
+            byte[] dataPkt = new byte[HEADER_SIZE + data.length];
+            byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
 
-                byte[] dataPkt = new byte[HEADER_SIZE + data.length];
-                byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
+            System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
+            System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
 
-                System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
-                System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
+            int checksum = getChecksum(dataPkt);
 
-                int checksum = getChecksum(dataPkt);
+            dataPkt[22] = (byte) (checksum & 0xFF);
+            dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-                dataPkt[22] = (byte) (checksum & 0xFF);
-                dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
-
-                try {
-                    sendUDPPacket(dataPkt, flagList);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            } else { // Non data transfer, only need header
-
+            try {
+                sendUDPPacket(dataPkt, flagList);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
             // Book-keeping
@@ -252,7 +256,7 @@ public class Sender {
                 // Check if ack num is the size of our file (initiate fin)
                 int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
 
-                if (recvAckNum == (this.fileSize + 1)) {
+                if (recvAckNum == ((this.fileSize + 1) + (this.totalPacketsSent * HEADER_SIZE))) {
                     // Respond with a fin
                     flagList = "- - F -";
                     flagNum = FIN;
@@ -396,12 +400,5 @@ public class Sender {
 
     private boolean extractACKFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
-    }
-
-    // byte 19 [ - | S | F | A ]
-    // For Handshake
-    private boolean isSYNACK(byte[] data) {
-        int flags = (int) (data[19]);
-        return ((flags & 0b1010) == 0b1010);
     }
 }
