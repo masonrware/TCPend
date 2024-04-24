@@ -5,7 +5,7 @@ import java.util.*;
 public class Sender {
     private final Object lock = new Object(); // Object for locking shared resources
 
-    private static final int MAX_RETRANSMISSIONS = 3;
+    private static final int MAX_RETRANSMISSION_ATTEMPTS = 16; // Maximum number of retransmission attempts
     private static final int HEADER_SIZE = 24 * Byte.SIZE;
 
     // Constants for smoothing factors
@@ -60,6 +60,9 @@ public class Sender {
     // Map to store sent packets for tracking and resending
     private Map<Integer, byte[]> sentPackets = new HashMap<>();
 
+    // Map to store the number of retransmission attempts for each sequence number
+    private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
+
 
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
@@ -92,7 +95,6 @@ public class Sender {
         } else {
             System.out.println("File not found or is not a file.");
         }
-
 
         // Initialize duplicate ACKs count for each sequence number
         for (int i = 0; i < MAX_RETRANSMISSIONS; i++) {
@@ -257,6 +259,9 @@ public class Sender {
 
                 // Schedule retransmission
                 scheduleRetransmission(timer, sequenceNumber);
+
+                // Increment the retransmission attempts counter for the current sequence number
+                retransmissionAttempts.put(sequenceNumber, retransmissionAttempts.getOrDefault(sequenceNumber, 0) + 1);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -271,9 +276,16 @@ public class Sender {
     private void resendPacket(int sequenceNumber) {
         byte[] packet = sentPackets.get(sequenceNumber);
         if (packet != null) {
+            // Check if maximum retransmission attempts reached
+            int attempts = retransmissionAttempts.getOrDefault(sequenceNumber, 0);
+            if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
+                // Stop retransmitting and report error
+                System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
+                // TODO: we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
+                return;
+            }
             // Resend the packet
             try {
-                // TODO: Do we have to send with old seq num???
                 sendUDPPacket(packet, "- A - D", sequenceNumber);
                 // Restart the timer
                 Timer timer = retransmissionTimers.get(sequenceNumber);
