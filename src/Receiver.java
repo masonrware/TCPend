@@ -20,6 +20,9 @@ public class Receiver {
     private int sequenceNumber = 0;
     private int ackNumber = 0;
 
+    private int lastSeqNumber = 1;
+    private int lastSize = 0;
+
     private int port;
     private int mtu;
     private int remotePort;
@@ -115,8 +118,12 @@ public class Receiver {
                 }
             }
 
-            // Only increment total packet count if handshake succeeds
-            totalPacketsSent += 2;
+            synchronized(lock) {
+                this.sequenceNumber += 1;
+
+                // Only increment total packet count if handshake succeeds
+                this.totalPacketsSent += 2;
+            }   
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -158,9 +165,11 @@ public class Receiver {
 
     private void handlePacket(String flag, byte[] recvPacketData) {
         synchronized (lock) {
-
             this.totalPacketsReceived += 1;
             this.totalDataReceived += extractLength(recvPacketData);
+
+            this.lastSeqNumber = extractSequenceNumber(recvPacketData);
+            this.lastSize = extractLength(recvPacketData);
 
             String flagList = "- - - -";
             int flagNum = 0;
@@ -192,7 +201,7 @@ public class Receiver {
                 flagNum |= 0b100; // ACK
 
                 // Only update ackNumber if received packet is continuous
-                if (recvSeqNum == this.ackNumber + this.extractLength(recvPacketData)) {
+                if ((this.lastSeqNumber + this.lastSize) == this.ackNumber) {
                     this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
                 }
 

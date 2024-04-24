@@ -85,10 +85,6 @@ public class Sender {
 
                 // buffer is of size mtu
                 while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
-                    // Book-keeping
-                    this.sequenceNumber += bytesRead;
-                    this.totalDataTransferred += bytesRead;
-
                     byte[] data = new byte[bytesRead];
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
@@ -169,8 +165,6 @@ public class Sender {
         synchronized (lock) {
             if ((flagNum & 0x00) == 0x00) {      // Data transfer, need to attach payload
                 flagNum &= 0b100;               // Add ACK flag
-                this.sequenceNumber += data.length;
-                this.totalDataTransferred += data.length;
 
                 byte[] dataPkt = new byte[HEADER_SIZE + data.length];
                 byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
@@ -192,6 +186,12 @@ public class Sender {
             }
             else {                  // Non data transfer, only need header
 
+            }
+
+            synchronized(lock) {
+                // Book-keeping
+                this.sequenceNumber += extractLength(data);
+                this.totalDataTransferred += extractLength(data);
             }
         }
 
@@ -237,20 +237,20 @@ public class Sender {
                 this.sequenceNumber += 1;
 
                 byte[] empty_data = new byte[0];
-                this.sendPacket(empty_data, flagNum, flagList);
+                this.sendPacket(empty_data, 0b100, "- A - -");
             } else if (flag == "A") {
                 outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
 
-                int recvAckNUm = this.extractAcknowledgmentNumber(recvPacketData);
+                int recvAckNum = this.extractAcknowledgmentNumber(recvPacketData);
 
                 // Check if we are done
-                if (recvAckNUm == this.fileSize) {
+                if (recvAckNum == (this.fileSize + 1)) {
                     flagNum |= 0b010;
                     byte[] empty_data = new byte[0];
                     this.sendPacket(empty_data, flagNum, "- - F -");
                 }
 
-                // TODO: implement go-back-N?
+                // TODO: implement go-back-N? (dependent on timer I think)
             }
         }
     }
