@@ -7,6 +7,10 @@ public class Receiver {
 
     private static final int HEADER_SIZE = 24 * Byte.SIZE;
 
+    private static final int ACK = 0b001;
+    private static final int SYNACK = 0b101;
+    private static final int FINACK = 0b011;
+
     // Variables to track statistics
     private int totalDataTransferred = 0;
     private int totalDataReceived = 0;
@@ -68,17 +72,7 @@ public class Receiver {
                     this.remoteAddress = inboundPacket.getAddress();
                     this.remotePort = inboundPacket.getPort();
 
-                    // TODO: handle checksum!!!
-                    if (this.isACK(inboundPacket.getData())) {
-                        // Handle the ack packet
-                        this.handlePacket("A", inboundPacket.getData());
-                    } else if (this.isFIN(inboundPacket.getData())) {
-                        // Respond to a FIN with a FINACK
-                        this.handlePacket("F", inboundPacket.getData());
-                    } else if (this.isDATA(inboundPacket.getData())) {
-                        // Handle the DATA packet
-                        this.handlePacket("D", inboundPacket.getData());
-                    }
+                    this.handlePacket(inboundPacket.getData());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -95,7 +89,7 @@ public class Receiver {
             synchronized (lock) {
 
                 if (this.isSYN(synPacket.getData())) {
-                    this.handlePacket("S", synPacket.getData());
+                    this.handlePacket(synPacket.getData());
                 } else {
                     throw new IOException("Handshake Failed -- did not receive SYN packet from sender.");
                 }
@@ -106,32 +100,26 @@ public class Receiver {
 
             synchronized (lock) {
                 if (this.isACK(ackPacket.getData())) {
+                    // Make sure the ack number is correct (seqNum + 1)
                     if (this.extractAcknowledgmentNumber(ackPacket.getData()) == this.sequenceNumber + 1) {
-                        this.handlePacket("A", synPacket.getData());
+                        this.handlePacket(ackPacket.getData());
                     }
                 } else {
                     throw new IOException("Handshake Failed -- did not receive correct ACK from sender.");
                 }
             }
 
+            // Only increment sequence number and total packet count if handshake succeeds
             synchronized(lock) {
                 this.sequenceNumber += 1;
-
-                // Only increment total packet count if handshake succeeds
                 this.totalPacketsSent += 2;
             }   
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-    /*
-     * SENDERS
-     */
-
     private void sendPacket(int flagNum, String flagStr) {
         synchronized (lock) {
-
             byte[] hdr = createHeader(HEADER_SIZE, flagNum);
             int checksum = getChecksum(hdr);
             hdr[22] = (byte) (checksum & 0xFF);
@@ -143,7 +131,6 @@ public class Receiver {
                 e.printStackTrace();
             }
         }
-
     }
 
     // Method to send UDP packet
@@ -152,14 +139,10 @@ public class Receiver {
         this.socket.send(packet);
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, data.length);
+        outputSegmentInfo("snd", flagList, this.sequenceNumber, data.length, this.ackNumber);
     }
 
-    /*
-     * HANDLER
-     */
-
-    private void handlePacket(String flag, byte[] recvPacketData) {
+    private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
             this.totalPacketsReceived += 1;
             this.totalDataReceived += extractLength(recvPacketData);
@@ -170,38 +153,55 @@ public class Receiver {
             String flagList = "- - - -";
             int flagNum = 0;
 
-            if (flag == "S" || flag == "F") {
-                if (flag == "S") {
-                    flagList = "S - - -";
-                    flagNum |= 0b101; // SYNACK
-                } else if (flag == "F") {
-                    flagList = "- - F -";
-                    flagNum |= 0b110; // FINACK
-                }
+            // SYN
+            if(extractSYNFlag(recvPacketData)) {
+                flagList = "S - - -";
 
-                this.outputSegmentInfo("rcv", flagList, extractLength(recvPacketData));
+                this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
+                // Update ack num
                 this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                
+                // Respond with a SYN-ACK
+                flagList = "S A - -";
+                flagNum = SYNACK;
+    
+                this.sendPacket(flagNum, flagList);
+            } // FIN
+            else if (extractFINFlag(recvPacketData)) {
+                flagList = "- - F -";
 
-                // byte[] empty_data = new byte[0];
-                this.sendPacket(flagNum, flagList); // send an ACK
-            } else if (flag == "A") {
-                this.outputSegmentInfo("rcv", "- A - -", extractLength(recvPacketData));
+                this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
-                // this.ackNumber = this.extractSequenceNumber(recvPacketData);
+                // Update ack num
+                this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                
+                // Respond with a FIN-ACK
+                flagList = "- A F -";
+                flagNum = FINACK;
+    
+                this.sendPacket(flagNum, flagList);
+            } // ACK
+            else if (extractACKFlag(recvPacketData)) {
+                flagList = "- A - -";
 
-            } else if (flag == "D") {
-                this.outputSegmentInfo("rcv", "- - - D", extractLength(recvPacketData));
+                this.outputSegmentInfo("rcv", "- A - -", extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
+            } // DATA 
+            else {
+                flagList = "- - - D";
 
-                int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-                flagNum |= 0b100; // ACK
+                this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Only update ackNumber if received packet is continuous
+                int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if ((this.lastSeqNumber + this.lastSize) == this.ackNumber) {
                     this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
                 }
 
-                // byte[] empty_data = new byte[0];
+                // Respond with ACK
+                flagList = "- A - -";
+                flagNum = ACK;
+
                 this.sendPacket(flagNum, flagList);
             }
         }
@@ -217,10 +217,10 @@ public class Receiver {
     }
 
     // Method to output segment information
-    private void outputSegmentInfo(String action, String flagList, int numBytes) {
+    private void outputSegmentInfo(String action, String flagList, int sequenceNumber, int numBytes, int ackNumber) {
         Date date = new Date();
-        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, this.sequenceNumber, numBytes,
-                this.ackNumber);
+        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, sequenceNumber, numBytes,
+                ackNumber);
     }
 
     private byte[] createHeader(int length, int afs) {
@@ -327,6 +327,19 @@ public class Receiver {
         return (header[23] & 0xFF) << 8 |
                 (header[22] & 0xFF);
     }
+
+    private boolean extractSYNFlag(byte[] header) {
+        return ((header[19]) & 0x1) == 1;
+    }
+
+    private boolean extractFINFlag(byte[] header) {
+        return ((header[19] >> 1) & 0x1) == 1;
+    }
+
+    private boolean extractACKFlag(byte[] header) {
+        return ((header[19] >> 2) & 0x1) == 1;
+    }
+
 
     // byte 19 [ - | S | F | A ]
     // For Handshake
