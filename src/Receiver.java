@@ -55,11 +55,12 @@ public class Receiver {
      */
 
     public void start() {
-        // Attempt handshake
-        try {
-            this.handshake();
-        } catch (IOException e) {
-            e.printStackTrace();
+        // Attempt handshake infinitely -- is this a good idea?
+        while(true) {
+            boolean res = this.handshake();
+            if(res) {
+                break;
+            }
         }
 
         Thread receiverThread = new Thread(() -> {
@@ -84,16 +85,23 @@ public class Receiver {
         receiverThread.start();
     }
 
-    private void handshake() throws IOException {
+    private boolean handshake() {
         try {
             DatagramPacket synPacket = new DatagramPacket(this.buffer, this.buffer.length);
             this.socket.receive(synPacket); // blocking !
             synchronized (lock) {
-
+                // Expect a SYN-ACK packet
                 if (extractSYNFlag(synPacket.getData())) {
-                    this.handlePacket(synPacket.getData());
+                    // Only init connection if the syn packet's seq num is 0
+                    if(extractSequenceNumber(synPacket.getData()) == 0) {
+                        this.handlePacket(synPacket.getData());
+                    } else {
+                        System.out.println("Handshake Failed -- received SYN packet with non-zero sequence number.");
+                        return false;
+                    }
                 } else {
-                    throw new IOException("Handshake Failed -- did not receive SYN packet from sender.");
+                    System.out.println("Handshake Failed -- did not receive SYN packet from sender.");
+                    return false;
                 }
             }
 
@@ -107,7 +115,8 @@ public class Receiver {
                         this.handlePacket(ackPacket.getData());
                     }
                 } else {
-                    throw new IOException("Handshake Failed -- did not receive correct ACK from sender.");
+                    System.out.println("Handshake Failed -- did not receive correct ACK from sender.");
+                    return false;
                 }
             }
 
@@ -116,13 +125,15 @@ public class Receiver {
                 this.sequenceNumber += 1;
                 this.totalPacketsSent += 2;
             }   
+            return true;
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return false;
     }
-    private void sendPacket(int flagNum, String flagStr) {
+    private void sendPacket(int flagNum, String flagStr, long timeStamp) {
         synchronized (lock) {
-            byte[] hdr = createHeader(HEADER_SIZE, flagNum);
+            byte[] hdr = createHeader(HEADER_SIZE, flagNum, timeStamp);
             int checksum = getChecksum(hdr);
             hdr[22] = (byte) (checksum & 0xFF);
             hdr[23] = (byte) ((checksum >> 8) & 0xFF);
@@ -159,13 +170,14 @@ public class Receiver {
                 this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Update ack num
-                this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                // this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                this.ackNumber += 1;
                 
                 // Respond with a SYN-ACK
                 flagList = "S A - -";
                 flagNum = SYNACK;
     
-                this.sendPacket(flagNum, flagList);
+                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
             } // FIN
             else if (extractFINFlag(recvPacketData)) {
                 flagList = "- - F -";
@@ -173,13 +185,14 @@ public class Receiver {
                 this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Update ack num
-                this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                // this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
+                this.ackNumber += 1;
                 
                 // Respond with a FIN-ACK
                 flagList = "- A F -";
                 flagNum = FINACK;
     
-                this.sendPacket(flagNum, flagList);
+                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
             } // ACK (not ACK DATA)
             else if (extractACKFlag(recvPacketData) && (extractLength(recvPacketData) == 0)) {
                 flagList = "- A - -";
@@ -193,15 +206,15 @@ public class Receiver {
 
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
-                if ((this.lastSeqNumber + this.lastSize) == this.ackNumber) {
-                    this.ackNumber = recvSeqNum + this.extractLength(recvPacketData);
+                if (recvSeqNum == this.ackNumber) {
+                    this.ackNumber += this.extractLength(recvPacketData);
                 }
 
                 // Respond with ACK
                 flagList = "- A - -";
                 flagNum = ACK;
 
-                this.sendPacket(flagNum, flagList);
+                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
             }
 
             this.lastSeqNumber = extractSequenceNumber(recvPacketData);
@@ -225,7 +238,7 @@ public class Receiver {
                 ackNumber);
     }
 
-    private byte[] createHeader(int length, int afs) {
+    private byte[] createHeader(int length, int afs, long timeStamp) {
         // seqnum and acknum are globals, get length and afs from cmd line
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
@@ -236,7 +249,7 @@ public class Receiver {
             // Write different data types to the byte array
             dataOutputStream.writeInt(this.sequenceNumber);
             dataOutputStream.writeInt(this.ackNumber);
-            dataOutputStream.writeLong(System.nanoTime());
+            dataOutputStream.writeLong(timeStamp);
             dataOutputStream.writeInt((length << 3) | afs);
             dataOutputStream.writeInt(0);
 
