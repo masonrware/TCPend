@@ -160,7 +160,7 @@ public class Sender {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, int flagNum, String flag) {
+    private void sendPacket(byte[] data, int flagNum, String flagList) {
         // this.socket, this.remoteAddress, this.remotePort
         synchronized (lock) {
             if ((flagNum & 0x00) == 0x00) {      // Data transfer, need to attach payload
@@ -178,7 +178,7 @@ public class Sender {
                 dataPkt[23] = (byte)((checksum >> 8) & 0xFF);
 
                 try{
-                    sendUDPPacket(dataPkt, flag);
+                    sendUDPPacket(dataPkt, flagList);
                 }
                 catch (IOException e){
                     e.printStackTrace();

@@ -20,7 +20,7 @@ public class Receiver {
     private int sequenceNumber = 0;
     private int ackNumber = 0;
 
-    private int lastSeqNumber = 1;
+    private int lastSeqNumber = 0;
     private int lastSize = 0;
 
     private int port;
@@ -51,10 +51,6 @@ public class Receiver {
      */
 
     public void start() {
-        this.startThreads();
-    }
-
-    private void startThreads() {
         // Attempt handshake
         try {
             this.handshake();
