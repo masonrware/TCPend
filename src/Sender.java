@@ -256,12 +256,6 @@ public class Sender {
                 retransmissionTimers.put(sequenceNumber, timer);
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(sequenceNumber, dataPkt);
-
-                // Schedule retransmission
-                scheduleRetransmission(timer, sequenceNumber);
-
-                // Increment the retransmission attempts counter for the current sequence number
-                retransmissionAttempts.put(sequenceNumber, retransmissionAttempts.getOrDefault(sequenceNumber, 0) + 1);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -294,6 +288,8 @@ public class Sender {
                 }
                 // Increment total retransmissions for statistics tracking
                 totalRetransmissions++;
+                // Increment the retransmission attempts counter for the current sequence number
+                retransmissionAttempts.put(sequenceNumber, retransmissionAttempts.getOrDefault(sequenceNumber, 0) + 1);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -367,19 +363,6 @@ public class Sender {
                 }
             }
         }
-    }
-    
-
-    // Method to schedule retransmission of a packet after timeout
-    private void scheduleRetransmission(Timer timer, int sequenceNumber) {
-        // Schedule retransmission task after timeout
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                // Perform retransmission
-                resendPacket(sequenceNumber);
-            }
-        });
     }
 
     // Method to handle acknowledgment of a packet
