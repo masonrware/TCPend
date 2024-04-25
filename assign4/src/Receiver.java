@@ -168,7 +168,6 @@ public class Receiver {
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
-        // outputSegmentInfo("snd", flagList, sequenceNumber, data.length-24, this.ackNumber);
     }
 
     private void handlePacket(byte[] recvPacketData) {

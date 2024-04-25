@@ -50,6 +50,8 @@ public class Sender {
     private InetAddress remoteAddress;
     private byte[] buffer;
 
+    private int firstUnackedSequenceNum = 0;
+
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
 
@@ -61,6 +63,10 @@ public class Sender {
 
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
+
+    // Map to store the mapping between acknowledgment numbers and sequence numbers
+    private Map<Integer, Integer> ackToSeqMap = new HashMap<>();
+
 
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
@@ -239,15 +245,17 @@ public class Sender {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                 // Log the timer for retransmission
                 Timer timer = new Timer(timeoutDuration);
-                // timer.schedule(new TimerTask() {
-                //     @Override
-                //     public void run() {
-                //         resendPacket(sequenceNumber);
-                //     }
-                // });
-                // retransmissionTimers.put(sequenceNumber, timer);
-                // // Store the sent packet in sentPackets for tracking
-                // sentPackets.put(sequenceNumber, dataPkt);
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        resendPacket(sequenceNumber);
+                    }
+                });
+                retransmissionTimers.put(sequenceNumber, timer);
+                // Associate the sent seqNum with an expected ackNum
+                ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
+                // Store the sent packet in sentPackets for tracking
+                sentPackets.put(sequenceNumber, dataPkt);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -261,20 +269,26 @@ public class Sender {
     // Method to resend a packet given its sequence number
     private void resendPacket(int sequenceNumber) {
         byte[] packet = sentPackets.get(sequenceNumber);
+
+        String flagList = "";
+        // Build flagList
+        flagList += extractSYNFlag(packet) ? "S " : "- ";
+        flagList += extractACKFlag(packet) ? "A " : "- ";
+        flagList += extractFINFlag(packet) ? "F " : "- ";
+        flagList += (extractLength(packet) > 0) ? "D " : "- ";
+
         if (packet != null) {
             // Check if maximum retransmission attempts reached
             int attempts = retransmissionAttempts.getOrDefault(sequenceNumber, 0);
             if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
                 // Stop retransmitting and report error
                 System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
-                // TODO: we may want to handle this error condition appropriately (e.g., close
-                // the connection, notify the user, etc.)
+                // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                 return;
             }
             // Resend the packet
             try {
-                // TODO: construct flagList and other things from the packet
-                sendUDPPacket(packet, "- A - D", sequenceNumber);
+                sendUDPPacket(packet, flagList, sequenceNumber);
                 // Restart the timer
                 Timer timer = retransmissionTimers.get(sequenceNumber);
                 if (timer != null) {
@@ -300,7 +314,6 @@ public class Sender {
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
-        // outputSegmentInfo("snd", flagList, sequenceNumber, data.length-24, this.ackNumber);
     }
 
     /*
@@ -334,11 +347,14 @@ public class Sender {
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
-                // TODO: The below note applies to this as well
-                int recvSeqNum = extractAcknowledgmentNumber(recvPacketData);
-                if (recvSeqNum > lastAckedSeqNum) {
-                    lastAckedSeqNum = recvSeqNum;
+                // Handle unacked packet
+                Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
+                if (seqNumber != null) { 
+                    handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
                 }
+
+                // TODO: what do we have to do for an ack?
+                // 3. check if we are finished
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (lastAckedSeqNum == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
@@ -346,19 +362,6 @@ public class Sender {
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
                     sendPacket(empty_data, flagNum, flagList);
-                }
-            }
-
-            // TODO: I don't think any of this works...
-
-            // Check for duplicate ACKs
-            if (lastAckedSeqNum >= 0 && extractAcknowledgmentNumber(recvPacketData) <= lastAckedSeqNum) {
-                int duplicateAcks = duplicateAcksCount.getOrDefault(extractSequenceNumber(recvPacketData), 0);
-                duplicateAcksCount.put(extractSequenceNumber(recvPacketData), duplicateAcks + 1);
-                totalDuplicateAcks++;
-                if (duplicateAcks == 3) {
-                    resendPacket(extractSequenceNumber(recvPacketData));
-                    duplicateAcksCount.put(extractSequenceNumber(recvPacketData), 0); // Reset duplicate ACK count
                 }
             }
         }
@@ -378,6 +381,15 @@ public class Sender {
 
             // Calculate the timeout duration based on the acknowledgment timestamp
             calculateTimeoutDuration(ackTimestamp);
+
+            // Check if this is a duplicate ack
+            int duplicateAcks = duplicateAcksCount.getOrDefault(sequenceNumber, 0);
+            duplicateAcksCount.put(sequenceNumber, duplicateAcks + 1);
+            if (duplicateAcks == 3) {
+                // Trigger retransmission logic for the packet with this sequence number
+                resendPacket(sequenceNumber);
+                duplicateAcksCount.put(sequenceNumber, 0); // Reset duplicate ACK count
+            }
 
             // TODO sliding window adjustment
 
