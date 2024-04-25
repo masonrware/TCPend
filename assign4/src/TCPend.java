@@ -13,12 +13,12 @@ public class TCPend {
                 return;
             }
 
-            int port = Integer.parseInt(args[0]);
-            String remoteIP = args[2];
-            int remotePort = Integer.parseInt(args[4]);
-            String fileName = args[6];
-            int mtu = Integer.parseInt(args[8]);
-            int sws = Integer.parseInt(args[10]);
+            int port = Integer.parseInt(args[1]);
+            String remoteIP = args[3];
+            int remotePort = Integer.parseInt(args[5]);
+            String fileName = args[7];
+            int mtu = Integer.parseInt(args[9]);
+            int sws = Integer.parseInt(args[11]);
 
             Sender sender = new Sender(remotePort, remoteIP, port, fileName, mtu, sws);
 
@@ -33,10 +33,10 @@ public class TCPend {
                 return;
             }
     
-            int port = Integer.parseInt(args[0]);
-            int mtu = Integer.parseInt(args[2]);
-            int sws = Integer.parseInt(args[4]);
-            String fileName = args[6];
+            int port = Integer.parseInt(args[1]);
+            int mtu = Integer.parseInt(args[3]);
+            int sws = Integer.parseInt(args[5]);
+            String fileName = args[7];
 
             Receiver receiver = new Receiver(port, mtu, sws, fileName);
 
