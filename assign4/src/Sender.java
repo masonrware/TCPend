@@ -249,8 +249,26 @@ public class Sender {
 
                 // Associate the sent seqNum with an expected ackNum
                 ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
+
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(sequenceNumber, dataPkt);
+
+                System.out.println("Put seq num: " + sequenceNumber);
+
+                System.out.println("retransmissionTimers:");
+                for (Map.Entry<Integer, Timer> entry: retransmissionTimers.entrySet()) {
+                    System.out.println(entry.getKey() + " " + entry.getValue());
+                }
+
+                System.out.println("ackToSeqMap:");
+                for (Map.Entry<Integer, Integer> entry: ackToSeqMap.entrySet()) {
+                    System.out.println(entry.getKey() + " " + entry.getValue());
+                }
+
+                System.out.println("sentPackets:");
+                for (Map.Entry<Integer, byte[]> entry: sentPackets.entrySet()) {
+                    System.out.println(entry.getKey() + " " + Arrays.toString(entry.getValue()));
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -280,7 +298,7 @@ public class Sender {
                 System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
                 Timer timer = retransmissionTimers.get(sequenceNumber);
                 timer.markDead();
-                
+
                 // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                 return;
             }
