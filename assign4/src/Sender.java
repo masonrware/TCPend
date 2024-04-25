@@ -356,6 +356,9 @@ public class Sender {
                     // if (seqNumber != null) { 
                     //     handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
                     // }
+                    sentPackets.remove(0);
+                    retransmissionTimers.remove(0);
+
 
                     ackNumber++;
                     sequenceNumber++;
