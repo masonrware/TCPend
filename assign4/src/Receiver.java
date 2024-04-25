@@ -156,7 +156,7 @@ public class Receiver {
         this.socket.send(packet);
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, this.sequenceNumber, data.length, this.ackNumber);
+        outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
     }
 
     private void handlePacket(byte[] recvPacketData) {

@@ -291,14 +291,14 @@ public class Sender {
 
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
-        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
-        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 
         this.totalPacketsSent += 1;
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, sequenceNumber, data.length, this.ackNumber);
+        outputSegmentInfo("snd", flagList, sequenceNumber, extractLength(data), this.ackNumber);
     }
 
     /*
