@@ -298,7 +298,8 @@ public class Sender {
         this.totalPacketsSent += 1;
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, sequenceNumber, extractLength(data), this.ackNumber);
+        // outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
+        outputSegmentInfo("snd", flagList, sequenceNumber, data.length-24, this.ackNumber);
     }
 
     /*
@@ -431,7 +432,8 @@ public class Sender {
             dataOutputStream.writeInt(this.sequenceNumber);
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(System.nanoTime());
-            dataOutputStream.writeInt(length | (afs << 13));
+            // dataOutputStream.writeInt(length | (afs << 13));
+            dataOutputStream.writeInt((length << 13) | afs); // Corrected the order of bit shifting
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
@@ -520,8 +522,8 @@ public class Sender {
     }
 
     private int extractChecksum(byte[] header) {
-        return (header[20] & 0xFF) << 8 |
-                (header[21] & 0xFF);
+        return (header[22] & 0xFF) << 8 |
+                (header[23] & 0xFF);
     }
 
     private boolean extractSYNFlag(byte[] header) {
