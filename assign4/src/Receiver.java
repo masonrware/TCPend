@@ -347,7 +347,7 @@ public class Receiver {
                (header[21] & 0xFF);
     }
 
-    private boolean extractSYNFlag(byte[] header) {
+    private boolean extractACKFlag(byte[] header) {
         return ((header[19]) & 0x1) == 1;
     }
 
@@ -355,7 +355,7 @@ public class Receiver {
         return ((header[19] >> 1) & 0x1) == 1;
     }
 
-    private boolean extractACKFlag(byte[] header) {
+    private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
     }
 
