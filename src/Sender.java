@@ -95,6 +95,11 @@ public class Sender {
         } else {
             System.out.println("File not found or is not a file.");
         }
+
+        // Initialize duplicate ACKs count for each sequence number
+        for (int i = 0; i < MAX_RETRANSMISSIONS; i++) {
+            duplicateAcksCount.put(i, 0);
+        }
     }
 
     /*
@@ -122,8 +127,7 @@ public class Sender {
 
                     // Send data segment
                     String flagList = "- - - D";
-                    // int flagNum = DATA;
-                    int flagNum = ACK;
+                    int flagNum = DATA;
 
                     this.sendPacket(data, flagNum, flagList);
                 }
@@ -224,6 +228,10 @@ public class Sender {
 
     private void sendPacket(byte[] data, int flagNum, String flagList) {        
         synchronized (lock) {
+            if (flagNum == DATA) {
+                flagNum &= ACK; // Add ACK flag
+            }
+            
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
 
@@ -430,7 +438,7 @@ public class Sender {
             dataOutputStream.writeInt(this.sequenceNumber);
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(System.nanoTime());
-            dataOutputStream.writeInt(length | (afs << 13));
+            dataOutputStream.writeInt((length << 3) | afs);
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
@@ -453,7 +461,6 @@ public class Sender {
 
     }
 
-    // Do we need to return as a short?
     private int getChecksum(byte[] data) {
         int sum = 0;
         int carry = 0;
@@ -487,40 +494,40 @@ public class Sender {
     }
 
     private int extractSequenceNumber(byte[] header) {
-        return (header[0] & 0xFF) << 24 |
-               (header[1] & 0xFF) << 16 |
-               (header[2] & 0xFF) << 8 |
-               (header[3] & 0xFF);
+        return (header[3] & 0xFF) << 24 |
+                (header[2] & 0xFF) << 16 |
+                (header[1] & 0xFF) << 8 |
+                (header[0] & 0xFF);
     }
 
     private int extractAcknowledgmentNumber(byte[] header) {
-        return (header[4] & 0xFF) << 24 |
-               (header[5] & 0xFF) << 16 |
-               (header[6] & 0xFF) << 8 |
-               (header[7] & 0xFF);
+        return (header[7] & 0xFF) << 24 |
+                (header[6] & 0xFF) << 16 |
+                (header[5] & 0xFF) << 8 |
+                (header[4] & 0xFF);
     }
 
     private long extractTimestamp(byte[] header) {
-        return (long)(header[8] & 0xFF) << 56 |
-               (long)(header[9] & 0xFF) << 48 |
-               (long)(header[10] & 0xFF) << 40 |
-               (long)(header[11] & 0xFF) << 32 |
-               (long)(header[12] & 0xFF) << 24 |
-               (long)(header[13] & 0xFF) << 16 |
-               (long)(header[14] & 0xFF) << 8 |
-               (long)(header[15] & 0xFF);
+        return (long) (header[15] & 0xFF) << 56 |
+                (long) (header[14] & 0xFF) << 48 |
+                (long) (header[13] & 0xFF) << 40 |
+                (long) (header[12] & 0xFF) << 32 |
+                (long) (header[11] & 0xFF) << 24 |
+                (long) (header[10] & 0xFF) << 16 |
+                (long) (header[9] & 0xFF) << 8 |
+                (long) (header[8] & 0xFF);
     }
 
-    private int extractLength(byte[] header) {
-        return (header[16] & 0xFF) << 21 |
-               (header[17] & 0xFF) << 13 |
-               (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0xFF);
+    private int extractLength(byte[] header) { // 0001 1111
+        return (header[19] & 0x1F) << 24 |
+                (header[18] & 0xFF) << 16 |
+                (header[17] & 0xFF) << 8 |
+                (header[16] & 0xFF);
     }
 
     private int extractChecksum(byte[] header) {
-        return (header[20] & 0xFF) << 8 |
-               (header[21] & 0xFF);
+        return (header[23] & 0xFF) << 8 |
+                (header[22] & 0xFF);
     }
 
     private boolean extractSYNFlag(byte[] header) {
