@@ -253,8 +253,8 @@ public class Sender {
             }
 
             // Book-keeping
-            this.sequenceNumber += extractLength(data);
-            this.totalDataTransferred += extractLength(data);
+            this.sequenceNumber += extractLength(dataHdr);
+            this.totalDataTransferred += extractLength(dataHdr);
         }
     }
 
