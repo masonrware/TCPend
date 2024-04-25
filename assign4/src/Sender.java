@@ -6,7 +6,7 @@ public class Sender {
     private final Object lock = new Object(); // Object for locking shared resources
 
     private static final int MAX_RETRANSMISSION_ATTEMPTS = 16; // Maximum number of retransmission attempts
-    private static final int HEADER_SIZE = 24 * Byte.SIZE;
+    private static final int HEADER_SIZE = 24;
 
     // Constants for smoothing factors
     private static final double ALPHA = 0.125;

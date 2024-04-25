@@ -5,7 +5,7 @@ import java.util.*;
 public class Receiver {
     private final Object lock = new Object(); // Object for locking shared resources
 
-    private static final int HEADER_SIZE = 24 * Byte.SIZE;
+    private static final int HEADER_SIZE = 24;
 
     private static final int ACK = 0b001;
     private static final int SYNACK = 0b101;
