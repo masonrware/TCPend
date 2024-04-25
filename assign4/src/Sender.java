@@ -103,12 +103,14 @@ public class Sender {
 
     public void start() {
         // Attempt handshake
+        System.out.println("[SND] Attempting handshake on port " + this.port + "...");
         try {
             this.handshake();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+        System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         Thread senderThread = new Thread(() -> {
             try {
                 // Open the file for reading

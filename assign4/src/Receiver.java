@@ -56,7 +56,7 @@ public class Receiver {
 
     public void start() {
         // Attempt handshake infinitely -- is this a good idea?
-        System.out.println("Listening on port " + this.port + ", waiting for handshake...");
+        System.out.println("[REC] Listening on port " + this.port + ", waiting for handshake...");
         while(true) {
             boolean res = this.handshake();
             if(res) {
@@ -64,7 +64,7 @@ public class Receiver {
             }
         }
 
-        System.out.println("Handshake complete, ready to receive data...");
+        System.out.println("[REC] Handshake complete, ready to receive data...");
         Thread receiverThread = new Thread(() -> {
             // Receive forever (until we get a FIN)
             while (true) {
