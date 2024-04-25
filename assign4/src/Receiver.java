@@ -95,6 +95,10 @@ public class Receiver {
             synchronized (lock) {
                 // Expect a SYN-ACK packet
                 System.out.println(Arrays.toString(synPacket.getData()));
+
+                this.remoteAddress = synPacket.getAddress();
+                this.remotePort = synPacket.getPort();
+                
                 if (extractSYNFlag(synPacket.getData())) {
                     // Only init connection if the syn packet's seq num is 0
                     if(extractSequenceNumber(synPacket.getData()) == 0) {
@@ -160,9 +164,6 @@ public class Receiver {
 
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
-        System.out.println(Arrays.toString(data));
-        System.out.println(this.remoteAddress + " " + this.remotePort);
-
         // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
