@@ -129,7 +129,7 @@ public class Sender {
                     // Send data segment
                     String flagList = "- - - D";
                     // int flagNum = DATA;
-                    int flagNum = ACK;
+                    int flagNum = (DATA | ACK);
 
                     this.sendPacket(data, flagNum, flagList);
                 }
@@ -351,6 +351,13 @@ public class Sender {
                     flagList = extractSYNFlag(recvPacketData) ? "S A - -" : "F A - -";
                     outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                             extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
+                    
+                    // Handle unacked packet
+                    Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
+                    if (seqNumber != null) { 
+                        handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
+                    }
+
                     ackNumber++;
                     sequenceNumber++;
                     flagList = "- A - -";
