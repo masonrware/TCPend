@@ -165,7 +165,7 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
-                        if (timer.hasExpired()) {
+                        if (!timer.isDead() && timer.hasExpired()) {
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
                             // Restart the timer
@@ -278,11 +278,15 @@ public class Sender {
             if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
                 // Stop retransmitting and report error
                 System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
+                Timer timer = retransmissionTimers.get(sequenceNumber);
+                timer.markDead();
+                
                 // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                 return;
             }
             // Resend the packet
             try {
+                System.out.println(">>resend\n");
                 sendUDPPacket(packet, flagList, sequenceNumber);
                 // Restart the timer
                 Timer timer = retransmissionTimers.get(sequenceNumber);
@@ -553,6 +557,7 @@ public class Sender {
     public class Timer {
         private final long timeout;
         private long startTime;
+        private boolean dead = false;
         // private TimerTask timerTask;
 
         public Timer(long timeout) {
@@ -566,6 +571,14 @@ public class Sender {
 
         public boolean hasExpired() {
             return System.currentTimeMillis() - startTime >= timeout;
+        }
+
+        public void markDead() {
+            this.dead = true;
+        }
+
+        public boolean isDead() {
+            return this.dead;
         }
 
         // // Method to cancel the timer
