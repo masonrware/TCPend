@@ -237,17 +237,17 @@ public class Sender {
 
             try {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                // // Log the timer for retransmission
-                // Timer timer = new Timer(timeoutDuration);
-                // timer.schedule(new TimerTask() {
-                //     @Override
-                //     public void run() {
-                //         resendPacket(sequenceNumber);
-                //     }
-                // });
-                // retransmissionTimers.put(sequenceNumber, timer);
-                // // Store the sent packet in sentPackets for tracking
-                // sentPackets.put(sequenceNumber, dataPkt);
+                // Log the timer for retransmission
+                Timer timer = new Timer(timeoutDuration);
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        resendPacket(sequenceNumber);
+                    }
+                });
+                retransmissionTimers.put(sequenceNumber, timer);
+                // Store the sent packet in sentPackets for tracking
+                sentPackets.put(sequenceNumber, dataPkt);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -291,8 +291,8 @@ public class Sender {
 
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
-        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
-        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
+        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 
         this.totalPacketsSent += 1;
