@@ -225,7 +225,7 @@ public class Sender {
     private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
-            byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
+            byte[] dataHdr = createHeader(data.length, flagNum);
 
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
