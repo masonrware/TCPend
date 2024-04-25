@@ -6,7 +6,6 @@ public class Sender {
     private final Object lock = new Object(); // Object for locking shared resources
 
     private static final int MAX_RETRANSMISSION_ATTEMPTS = 16; // Maximum number of retransmission attempts
-    // private static final int HEADER_SIZE = 24 * Byte.SIZE;
     private static final int HEADER_SIZE = 24;
 
     // Constants for smoothing factors
@@ -19,7 +18,6 @@ public class Sender {
     private long smoothedRTT = 0;
     private long smoothedDeviation = 0;
     private long timeoutDuration = 5000; // Initial timeout duration set to 5 seconds
-
 
     private static final int SYN = 0b100;
     private static final int FIN = 0b010;
@@ -52,6 +50,8 @@ public class Sender {
     private InetAddress remoteAddress;
     private byte[] buffer;
 
+    private int firstUnackedSequenceNum = 0;
+
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
 
@@ -63,6 +63,9 @@ public class Sender {
 
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
+
+    // Map to store the mapping between acknowledgment numbers and sequence numbers
+    private Map<Integer, Integer> ackToSeqMap = new HashMap<>();
 
 
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
@@ -225,10 +228,10 @@ public class Sender {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, int flagNum, String flagList) {        
+    private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
-            byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
+            byte[] dataHdr = createHeader(data.length, flagNum);
 
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
@@ -249,33 +252,43 @@ public class Sender {
                     }
                 });
                 retransmissionTimers.put(sequenceNumber, timer);
+                // Associate the sent seqNum with an expected ackNum
+                ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(sequenceNumber, dataPkt);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            
+
             // Book-keeping
-            this.sequenceNumber += extractLength(data);
-            this.totalDataTransferred += extractLength(data);
+            this.sequenceNumber += extractLength(dataHdr);
+            this.totalDataTransferred += extractLength(dataHdr);
         }
     }
 
     // Method to resend a packet given its sequence number
     private void resendPacket(int sequenceNumber) {
         byte[] packet = sentPackets.get(sequenceNumber);
+
+        String flagList = "";
+        // Build flagList
+        flagList += extractSYNFlag(packet) ? "S " : "- ";
+        flagList += extractACKFlag(packet) ? "A " : "- ";
+        flagList += extractFINFlag(packet) ? "F " : "- ";
+        flagList += (extractLength(packet) > 0) ? "D " : "- ";
+
         if (packet != null) {
             // Check if maximum retransmission attempts reached
             int attempts = retransmissionAttempts.getOrDefault(sequenceNumber, 0);
             if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
                 // Stop retransmitting and report error
                 System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
-                // TODO: we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
+                // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                 return;
             }
             // Resend the packet
             try {
-                sendUDPPacket(packet, "- A - D", sequenceNumber);
+                sendUDPPacket(packet, flagList, sequenceNumber);
                 // Restart the timer
                 Timer timer = retransmissionTimers.get(sequenceNumber);
                 if (timer != null) {
@@ -293,20 +306,21 @@ public class Sender {
 
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
-        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 
         this.totalPacketsSent += 1;
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, sequenceNumber, data.length, this.ackNumber);
+        outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
     }
 
     /*
      * HANDLERS
      */
 
-     private void handlePacket(byte[] recvPacketData) {
+    private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
@@ -324,17 +338,23 @@ public class Sender {
                     sequenceNumber++;
                     flagList = "- A - -";
                     flagNum = ACK;
+
+                    byte[] empty_data = new byte[0];
+                    sendPacket(empty_data, flagNum, flagList);
                 }
             } else { // Handle regular ACK
                 flagList = "- A - -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
-                // TODO: The below note applies to this as well
-                int recvSeqNum = extractAcknowledgmentNumber(recvPacketData);
-                if (recvSeqNum > lastAckedSeqNum) {
-                    lastAckedSeqNum = recvSeqNum;
+                // Handle unacked packet
+                Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
+                if (seqNumber != null) { 
+                    handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
                 }
+
+                // TODO: what do we have to do for an ack?
+                // 3. check if we are finished
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (lastAckedSeqNum == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
@@ -342,19 +362,6 @@ public class Sender {
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
                     sendPacket(empty_data, flagNum, flagList);
-                }
-            }
-
-            // TODO: I don't think any of this works...
-
-            // Check for duplicate ACKs
-            if (lastAckedSeqNum >= 0 && extractAcknowledgmentNumber(recvPacketData) <= lastAckedSeqNum) {
-                int duplicateAcks = duplicateAcksCount.getOrDefault(extractSequenceNumber(recvPacketData), 0);
-                duplicateAcksCount.put(extractSequenceNumber(recvPacketData), duplicateAcks + 1);
-                totalDuplicateAcks++;
-                if (duplicateAcks == 3) {
-                    resendPacket(extractSequenceNumber(recvPacketData));
-                    duplicateAcksCount.put(extractSequenceNumber(recvPacketData), 0); // Reset duplicate ACK count
                 }
             }
         }
@@ -374,6 +381,15 @@ public class Sender {
 
             // Calculate the timeout duration based on the acknowledgment timestamp
             calculateTimeoutDuration(ackTimestamp);
+
+            // Check if this is a duplicate ack
+            int duplicateAcks = duplicateAcksCount.getOrDefault(sequenceNumber, 0);
+            duplicateAcksCount.put(sequenceNumber, duplicateAcks + 1);
+            if (duplicateAcks == 3) {
+                // Trigger retransmission logic for the packet with this sequence number
+                resendPacket(sequenceNumber);
+                duplicateAcksCount.put(sequenceNumber, 0); // Reset duplicate ACK count
+            }
 
             // TODO sliding window adjustment
 
@@ -395,8 +411,7 @@ public class Sender {
 
     // Method to output segment information
     private void outputSegmentInfo(String action, String flagList, int sequenceNumber, int numBytes, int ackNumber) {
-        Date date = new Date();
-        System.out.printf("%d %s %s %d %s %d %d %d\n", System.nanoTime(), action, flagList, sequenceNumber, numBytes,
+        System.out.printf("%s %d %s %d %d %d\n", action, System.nanoTime(), flagList, sequenceNumber, numBytes,
                 ackNumber);
     }
 
@@ -433,7 +448,8 @@ public class Sender {
             dataOutputStream.writeInt(this.sequenceNumber);
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(System.nanoTime());
-            dataOutputStream.writeInt(length | (afs << 13));
+            // dataOutputStream.writeInt(length | (afs << 13));
+            dataOutputStream.writeInt((length << 13) | afs); // Corrected the order of bit shifting
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
@@ -491,42 +507,42 @@ public class Sender {
 
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
-               (header[1] & 0xFF) << 16 |
-               (header[2] & 0xFF) << 8 |
-               (header[3] & 0xFF);
+                (header[1] & 0xFF) << 16 |
+                (header[2] & 0xFF) << 8 |
+                (header[3] & 0xFF);
     }
 
     private int extractAcknowledgmentNumber(byte[] header) {
         return (header[4] & 0xFF) << 24 |
-               (header[5] & 0xFF) << 16 |
-               (header[6] & 0xFF) << 8 |
-               (header[7] & 0xFF);
+                (header[5] & 0xFF) << 16 |
+                (header[6] & 0xFF) << 8 |
+                (header[7] & 0xFF);
     }
 
     private long extractTimestamp(byte[] header) {
-        return (long)(header[8] & 0xFF) << 56 |
-               (long)(header[9] & 0xFF) << 48 |
-               (long)(header[10] & 0xFF) << 40 |
-               (long)(header[11] & 0xFF) << 32 |
-               (long)(header[12] & 0xFF) << 24 |
-               (long)(header[13] & 0xFF) << 16 |
-               (long)(header[14] & 0xFF) << 8 |
-               (long)(header[15] & 0xFF);
+        return (long) (header[8] & 0xFF) << 56 |
+                (long) (header[9] & 0xFF) << 48 |
+                (long) (header[10] & 0xFF) << 40 |
+                (long) (header[11] & 0xFF) << 32 |
+                (long) (header[12] & 0xFF) << 24 |
+                (long) (header[13] & 0xFF) << 16 |
+                (long) (header[14] & 0xFF) << 8 |
+                (long) (header[15] & 0xFF);
     }
 
     private int extractLength(byte[] header) {
         return (header[16] & 0xFF) << 21 |
-               (header[17] & 0xFF) << 13 |
-               (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0xFF);
+                (header[17] & 0xFF) << 13 |
+                (header[18] & 0xFF) << 5 |
+                ((header[19] >> 3) & 0xFF);
     }
 
     private int extractChecksum(byte[] header) {
-        return (header[20] & 0xFF) << 8 |
-               (header[21] & 0xFF);
+        return (header[22] & 0xFF) << 8 |
+                (header[23] & 0xFF);
     }
 
-    private boolean extractSYNFlag(byte[] header) {
+    private boolean extractACKFlag(byte[] header) {
         return ((header[19]) & 0x1) == 1;
     }
 
@@ -534,7 +550,7 @@ public class Sender {
         return ((header[19] >> 1) & 0x1) == 1;
     }
 
-    private boolean extractACKFlag(byte[] header) {
+    private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
     }
 

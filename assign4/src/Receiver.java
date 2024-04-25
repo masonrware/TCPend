@@ -1,11 +1,12 @@
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.*;
 import java.util.*;
 
 public class Receiver {
     private final Object lock = new Object(); // Object for locking shared resources
 
-    private static final int HEADER_SIZE = 24 * Byte.SIZE;
+    private static final int HEADER_SIZE = 24;
 
     private static final int ACK = 0b001;
     private static final int SYNACK = 0b101;
@@ -93,6 +94,9 @@ public class Receiver {
             this.socket.receive(synPacket); // blocking !
             synchronized (lock) {
                 // Expect a SYN-ACK packet
+                this.remoteAddress = synPacket.getAddress();
+                this.remotePort = synPacket.getPort();
+
                 if (extractSYNFlag(synPacket.getData())) {
                     // Only init connection if the syn packet's seq num is 0
                     if(extractSequenceNumber(synPacket.getData()) == 0) {
@@ -134,15 +138,22 @@ public class Receiver {
         return false;
     }
 
-    private void sendPacket(int flagNum, String flagStr, long timeStamp) {
+    private void sendPacket(int flagNum, String flagList, long timeStamp) {
         synchronized (lock) {
-            byte[] hdr = createHeader(HEADER_SIZE, flagNum, timeStamp);
-            int checksum = getChecksum(hdr);
-            hdr[22] = (byte) (checksum & 0xFF);
-            hdr[23] = (byte) ((checksum >> 8) & 0xFF);
+            byte[] dataPkt = new byte[HEADER_SIZE];
+
+            byte[] hdr = createHeader(0, flagNum, timeStamp);
+            // System.out.println(hdr);
+
+            System.arraycopy(hdr, 0, dataPkt, 0, HEADER_SIZE);
+
+            int checksum = getChecksum(dataPkt);
+
+            dataPkt[22] = (byte) (checksum & 0xFF);
+            dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             try {
-                sendUDPPacket(hdr, flagStr);
+                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -150,12 +161,13 @@ public class Receiver {
     }
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList) throws IOException {
-        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+    private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
+        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, this.sequenceNumber, data.length, this.ackNumber);
+        outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
     }
 
     private void handlePacket(byte[] recvPacketData) {
@@ -236,8 +248,7 @@ public class Receiver {
 
     // Method to output segment information
     private void outputSegmentInfo(String action, String flagList, int sequenceNumber, int numBytes, int ackNumber) {
-        Date date = new Date();
-        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, sequenceNumber, numBytes,
+        System.out.printf("%s %d %s %d %d %d\n", action, System.nanoTime(), flagList, sequenceNumber, numBytes,
                 ackNumber);
     }
 
@@ -253,7 +264,7 @@ public class Receiver {
             dataOutputStream.writeInt(this.sequenceNumber);
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(timeStamp);
-            dataOutputStream.writeInt((length << 3) | afs);
+            dataOutputStream.writeInt((length << 13) | afs); // Corrected the order of bit shifting
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
@@ -346,7 +357,7 @@ public class Receiver {
                (header[21] & 0xFF);
     }
 
-    private boolean extractSYNFlag(byte[] header) {
+    private boolean extractACKFlag(byte[] header) {
         return ((header[19]) & 0x1) == 1;
     }
 
@@ -354,7 +365,7 @@ public class Receiver {
         return ((header[19] >> 1) & 0x1) == 1;
     }
 
-    private boolean extractACKFlag(byte[] header) {
+    private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
     }
 
