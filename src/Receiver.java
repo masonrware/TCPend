@@ -131,6 +131,7 @@ public class Receiver {
         }
         return false;
     }
+
     private void sendPacket(int flagNum, String flagStr, long timeStamp) {
         synchronized (lock) {
             byte[] hdr = createHeader(HEADER_SIZE, flagNum, timeStamp);
@@ -261,6 +262,7 @@ public class Receiver {
 
             int checksum = getChecksum(byteArray);
 
+            // should these be flipped? i.e. byte 23 gets first byte of checksum
             byteArray[22] = (byte) (checksum & 0xFF);
             byteArray[23] = (byte) ((checksum >> 8) & 0xFF);
 
@@ -306,41 +308,40 @@ public class Receiver {
     }
 
     private int extractSequenceNumber(byte[] header) {
-        return (header[3] & 0xFF) << 24 |
-                (header[2] & 0xFF) << 16 |
-                (header[1] & 0xFF) << 8 |
-                (header[0] & 0xFF);
+        return (header[0] & 0xFF) << 24 |
+               (header[1] & 0xFF) << 16 |
+               (header[2] & 0xFF) << 8 |
+               (header[3] & 0xFF);
     }
 
     private int extractAcknowledgmentNumber(byte[] header) {
-        return (header[7] & 0xFF) << 24 |
-                (header[6] & 0xFF) << 16 |
-                (header[5] & 0xFF) << 8 |
-                (header[4] & 0xFF);
+        return (header[4] & 0xFF) << 24 |
+               (header[5] & 0xFF) << 16 |
+               (header[6] & 0xFF) << 8 |
+               (header[7] & 0xFF);
     }
 
     private long extractTimestamp(byte[] header) {
-        return (long) (header[15] & 0xFF) << 56 |
-                (long) (header[14] & 0xFF) << 48 |
-                (long) (header[13] & 0xFF) << 40 |
-                (long) (header[12] & 0xFF) << 32 |
-                (long) (header[11] & 0xFF) << 24 |
-                (long) (header[10] & 0xFF) << 16 |
-                (long) (header[9] & 0xFF) << 8 |
-                (long) (header[8] & 0xFF);
+        return (long)(header[8] & 0xFF) << 56 |
+               (long)(header[9] & 0xFF) << 48 |
+               (long)(header[10] & 0xFF) << 40 |
+               (long)(header[11] & 0xFF) << 32 |
+               (long)(header[12] & 0xFF) << 24 |
+               (long)(header[13] & 0xFF) << 16 |
+               (long)(header[14] & 0xFF) << 8 |
+               (long)(header[15] & 0xFF);
     }
 
     private int extractLength(byte[] header) {
-        // Must disregard last 3 bits (SFA flags)
-        return (header[19] & 0x1F) << 24 |
-                (header[18] & 0xFF) << 16 |
-                (header[17] & 0xFF) << 8 |
-                (header[16] & 0xFF);
+        return (header[16] & 0xFF) << 21 |
+               (header[17] & 0xFF) << 13 |
+               (header[18] & 0xFF) << 5 |
+               ((header[19] >> 3) & 0xFF);
     }
 
     private int extractChecksum(byte[] header) {
-        return (header[23] & 0xFF) << 8 |
-                (header[22] & 0xFF);
+        return (header[20] & 0xFF) << 8 |
+               (header[21] & 0xFF);
     }
 
     private boolean extractSYNFlag(byte[] header) {
