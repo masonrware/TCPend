@@ -5,7 +5,6 @@ import java.util.*;
 public class TCPend {
     
     public static void main(String[] args){
-        System.out.println(args.length);
         if (args.length == 12){         // Sender
             if (!args[0].equals("-p") || !args[2].equals("-s") || !args[4].equals("-a")
                                       || !args[6].equals("f") || !args[8].equals("-m") || !args[10].equals("-c")) {
