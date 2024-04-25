@@ -245,13 +245,8 @@ public class Sender {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                 // Log the timer for retransmission
                 Timer timer = new Timer(timeoutDuration);
-                timer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        resendPacket(sequenceNumber);
-                    }
-                });
                 retransmissionTimers.put(sequenceNumber, timer);
+
                 // Associate the sent seqNum with an expected ackNum
                 ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
                 // Store the sent packet in sentPackets for tracking
@@ -374,10 +369,10 @@ public class Sender {
             sentPackets.remove(sequenceNumber);
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            Timer timer = retransmissionTimers.remove(sequenceNumber);
-            if (timer != null) {
-                timer.cancel();
-            }
+            retransmissionTimers.remove(sequenceNumber);
+            // if (timer != null) {
+            //     timer.cancel();
+            // }
 
             // Calculate the timeout duration based on the acknowledgment timestamp
             calculateTimeoutDuration(ackTimestamp);
@@ -558,7 +553,7 @@ public class Sender {
     public class Timer {
         private final long timeout;
         private long startTime;
-        private TimerTask timerTask;
+        // private TimerTask timerTask;
 
         public Timer(long timeout) {
             this.timeout = timeout;
@@ -580,11 +575,11 @@ public class Sender {
             }
         }
 
-        // Method to schedule a task for the timer
-        public void schedule(TimerTask task) {
-            this.timerTask = task;
-            new java.util.Timer().schedule(task, timeout);
-        }
+        // // Method to schedule a task for the timer
+        // public void schedule(TimerTask task) {
+        //     this.timerTask = task;
+        //     new java.util.Timer().schedule(task, timeout);
+        // }
     }
 
 }
