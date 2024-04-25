@@ -279,8 +279,8 @@ public class Sender {
     }
 
     // Method to resend a packet given its sequence number
-    private void resendPacket(int sequenceNumber) {
-        byte[] packet = sentPackets.get(sequenceNumber);
+    private void resendPacket(int seqNum) {
+        byte[] packet = sentPackets.get(seqNum);
 
         String flagList = "";
         // Build flagList
@@ -291,11 +291,11 @@ public class Sender {
 
         if (packet != null) {
             // Check if maximum retransmission attempts reached
-            int attempts = retransmissionAttempts.getOrDefault(sequenceNumber, 0);
+            int attempts = retransmissionAttempts.getOrDefault(seqNum, 0);
             if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
                 // Stop retransmitting and report error
-                System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
-                Timer timer = retransmissionTimers.get(sequenceNumber);
+                System.err.println("Maximum retransmission attempts reached for sequence number: " + seqNum);
+                Timer timer = retransmissionTimers.get(seqNum);
                 timer.markDead();
 
                 // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
@@ -303,17 +303,17 @@ public class Sender {
             }
             // Resend the packet
             try {
-                System.out.println(">>resend\n");
-                sendUDPPacket(packet, flagList, sequenceNumber);
+                System.out.println("\n>>resend " + seqNum);
+                sendUDPPacket(packet, flagList, seqNum);
                 // Restart the timer
-                Timer timer = retransmissionTimers.get(sequenceNumber);
+                Timer timer = retransmissionTimers.get(seqNum);
                 if (timer != null) {
                     timer.restart();
                 }
                 // Increment total retransmissions for statistics tracking
                 totalRetransmissions++;
                 // Increment the retransmission attempts counter for the current sequence number
-                retransmissionAttempts.put(sequenceNumber, retransmissionAttempts.getOrDefault(sequenceNumber, 0) + 1);
+                retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -321,7 +321,7 @@ public class Sender {
     }
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
+    private void sendUDPPacket(byte[] data, String flagList, int seqNum) throws IOException {
         // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
@@ -329,7 +329,7 @@ public class Sender {
         this.totalPacketsSent += 1;
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
+        outputSegmentInfo("snd", flagList, seqNum, extractLength(data), this.ackNumber);
     }
 
     /*
@@ -351,11 +351,11 @@ public class Sender {
                     outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                             extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
                     
-                    // Handle unacked packet
-                    Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
-                    if (seqNumber != null) { 
-                        handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
-                    }
+                    // // Handle unacked packet
+                    // Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
+                    // if (seqNumber != null) { 
+                    //     handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
+                    // }
 
                     ackNumber++;
                     sequenceNumber++;
