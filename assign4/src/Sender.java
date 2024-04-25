@@ -350,7 +350,6 @@ public class Sender {
 
                     byte[] empty_data = new byte[0];
                     sendPacket(empty_data, flagNum, flagList);
-                }
             } else { // Handle regular ACK
                 flagList = "- A - -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
