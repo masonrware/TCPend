@@ -1,4 +1,5 @@
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.*;
 import java.util.*;
 
@@ -152,6 +153,9 @@ public class Receiver {
 
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList) throws IOException {
+        System.out.println(Arrays.toString(data));
+        System.out.println(this.remoteAddress + " " + this.remotePort);
+
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         this.socket.send(packet);
 
