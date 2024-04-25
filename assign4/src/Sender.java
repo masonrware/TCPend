@@ -325,6 +325,9 @@ public class Sender {
                     sequenceNumber++;
                     flagList = "- A - -";
                     flagNum = ACK;
+
+                    byte[] empty_data = new byte[0];
+                    sendPacket(empty_data, flagNum, flagList);
                 }
             } else { // Handle regular ACK
                 flagList = "- A - -";
