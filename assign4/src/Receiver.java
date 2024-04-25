@@ -163,7 +163,6 @@ public class Receiver {
     // Method to send UDP packet
     private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
         // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
-        System.out.println("==>Sending to: " + this.remoteAddress + " " + this.port);
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 

@@ -322,9 +322,6 @@ public class Sender {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
-
-            System.out.println("RECEIVED: " + Arrays.toString(recvPacketData));
-            
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
 
@@ -332,8 +329,7 @@ public class Sender {
             int flagNum = 0;
 
             // Handle SYN-ACK and FIN-ACK
-            if (extractACKFlag(recvPacketData)) {
-                if (extractSYNFlag(recvPacketData) || extractFINFlag(recvPacketData)) {
+            if (extractSYNFlag(recvPacketData) || extractFINFlag(recvPacketData)) {
                     flagList = extractSYNFlag(recvPacketData) ? "S A - -" : "F A - -";
                     outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                             extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
