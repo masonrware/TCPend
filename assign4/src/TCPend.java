@@ -7,18 +7,18 @@ public class TCPend {
     public static void main(String[] args){
         System.out.println(args.length);
         if (args.length == 12){         // Sender
-            if (!args[1].equals("-p") || !args[3].equals("-s") || !args[5].equals("-a")
-                                      || !args[7].equals("f") || !args[9].equals("-m") || !args[11].equals("-c")) {
+            if (!args[0].equals("-p") || !args[2].equals("-s") || !args[4].equals("-a")
+                                      || !args[6].equals("f") || !args[8].equals("-m") || !args[10].equals("-c")) {
                 System.out.println("Usage for sender: java TCPend -p <port> -s <remote IP> -a <remote port> f <file name> -m <mtu> -c <sws>");
                 return;
             }
 
-            int port = Integer.parseInt(args[1]);
-            String remoteIP = args[3];
-            int remotePort = Integer.parseInt(args[5]);
-            String fileName = args[7];
-            int mtu = Integer.parseInt(args[9]);
-            int sws = Integer.parseInt(args[11]);
+            int port = Integer.parseInt(args[0]);
+            String remoteIP = args[2];
+            int remotePort = Integer.parseInt(args[4]);
+            String fileName = args[6];
+            int mtu = Integer.parseInt(args[8]);
+            int sws = Integer.parseInt(args[10]);
 
             Sender sender = new Sender(remotePort, remoteIP, port, fileName, mtu, sws);
 
@@ -28,15 +28,15 @@ public class TCPend {
                 // https://www.baeldung.com/udp-in-java
         }
         else if (args.length == 8){     // Receiver
-            if (!args[1].equals("-p") || !args[3].equals("-m") || !args[5].equals("-c") || !args[7].equals("-f")) {
+            if (!args[0].equals("-p") || !args[2].equals("-m") || !args[4].equals("-c") || !args[6].equals("-f")) {
                 System.out.println("Usage for receiver: java TCPend -p <port> -m <mtu> -c <sws> -f <file name>");
                 return;
             }
     
-            int port = Integer.parseInt(args[1]);
-            int mtu = Integer.parseInt(args[3]);
-            int sws = Integer.parseInt(args[5]);
-            String fileName = args[7];
+            int port = Integer.parseInt(args[0]);
+            int mtu = Integer.parseInt(args[2]);
+            int sws = Integer.parseInt(args[4]);
+            String fileName = args[6];
 
             Receiver receiver = new Receiver(port, mtu, sws, fileName);
 
