@@ -273,6 +273,7 @@ public class Sender {
             }
             // Resend the packet
             try {
+                // TODO: construct flagList and other things from the packet
                 sendUDPPacket(packet, "- A - D", sequenceNumber);
                 // Restart the timer
                 Timer timer = retransmissionTimers.get(sequenceNumber);
