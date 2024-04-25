@@ -136,15 +136,22 @@ public class Receiver {
         return false;
     }
 
-    private void sendPacket(int flagNum, String flagStr, long timeStamp) {
+    private void sendPacket(int flagNum, String flagList, long timeStamp) {
         synchronized (lock) {
+            byte[] dataPkt = new byte[HEADER_SIZE];
+
             byte[] hdr = createHeader(0, flagNum, timeStamp);
-            int checksum = getChecksum(hdr);
-            hdr[22] = (byte) (checksum & 0xFF);
-            hdr[23] = (byte) ((checksum >> 8) & 0xFF);
+            System.out.println(hdr);
+
+            System.arraycopy(hdr, 0, dataPkt, 0, HEADER_SIZE);
+
+            int checksum = getChecksum(dataPkt);
+
+            dataPkt[22] = (byte) (checksum & 0xFF);
+            dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             try {
-                sendUDPPacket(hdr, flagStr);
+                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -152,11 +159,12 @@ public class Receiver {
     }
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList) throws IOException {
+    private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
         System.out.println(Arrays.toString(data));
         System.out.println(this.remoteAddress + " " + this.remotePort);
 
-        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
+        DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 
         // Output information about the sent packet
