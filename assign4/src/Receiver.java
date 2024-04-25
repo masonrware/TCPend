@@ -136,7 +136,7 @@ public class Receiver {
 
     private void sendPacket(int flagNum, String flagStr, long timeStamp) {
         synchronized (lock) {
-            byte[] hdr = createHeader(HEADER_SIZE, flagNum, timeStamp);
+            byte[] hdr = createHeader(0, flagNum, timeStamp);
             int checksum = getChecksum(hdr);
             hdr[22] = (byte) (checksum & 0xFF);
             hdr[23] = (byte) ((checksum >> 8) & 0xFF);
