@@ -236,8 +236,7 @@ public class Receiver {
 
     // Method to output segment information
     private void outputSegmentInfo(String action, String flagList, int sequenceNumber, int numBytes, int ackNumber) {
-        Date date = new Date();
-        System.out.printf("%d %s %s %d %s %d %d %d\n", date.getTime(), action, flagList, sequenceNumber, numBytes,
+        System.out.printf("%s %l %s %d %d %d\n", action, System.nanoTime(), flagList, sequenceNumber, numBytes,
                 ackNumber);
     }
 

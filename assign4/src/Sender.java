@@ -19,7 +19,6 @@ public class Sender {
     private long smoothedDeviation = 0;
     private long timeoutDuration = 5000; // Initial timeout duration set to 5 seconds
 
-
     private static final int SYN = 0b100;
     private static final int FIN = 0b010;
     private static final int ACK = 0b001;
@@ -62,7 +61,6 @@ public class Sender {
 
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
-
 
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
@@ -224,7 +222,7 @@ public class Sender {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, int flagNum, String flagList) {        
+    private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(HEADER_SIZE, flagNum);
@@ -253,7 +251,7 @@ public class Sender {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            
+
             // Book-keeping
             this.sequenceNumber += extractLength(data);
             this.totalDataTransferred += extractLength(data);
@@ -269,7 +267,8 @@ public class Sender {
             if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
                 // Stop retransmitting and report error
                 System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
-                // TODO: we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
+                // TODO: we may want to handle this error condition appropriately (e.g., close
+                // the connection, notify the user, etc.)
                 return;
             }
             // Resend the packet
@@ -305,7 +304,7 @@ public class Sender {
      * HANDLERS
      */
 
-     private void handlePacket(byte[] recvPacketData) {
+    private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
@@ -394,8 +393,7 @@ public class Sender {
 
     // Method to output segment information
     private void outputSegmentInfo(String action, String flagList, int sequenceNumber, int numBytes, int ackNumber) {
-        Date date = new Date();
-        System.out.printf("%d %s %s %d %s %d %d %d\n", System.nanoTime(), action, flagList, sequenceNumber, numBytes,
+        System.out.printf("%s %l %s %d %d %d\n", action, System.nanoTime(), flagList, sequenceNumber, numBytes,
                 ackNumber);
     }
 
@@ -490,39 +488,39 @@ public class Sender {
 
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
-               (header[1] & 0xFF) << 16 |
-               (header[2] & 0xFF) << 8 |
-               (header[3] & 0xFF);
+                (header[1] & 0xFF) << 16 |
+                (header[2] & 0xFF) << 8 |
+                (header[3] & 0xFF);
     }
 
     private int extractAcknowledgmentNumber(byte[] header) {
         return (header[4] & 0xFF) << 24 |
-               (header[5] & 0xFF) << 16 |
-               (header[6] & 0xFF) << 8 |
-               (header[7] & 0xFF);
+                (header[5] & 0xFF) << 16 |
+                (header[6] & 0xFF) << 8 |
+                (header[7] & 0xFF);
     }
 
     private long extractTimestamp(byte[] header) {
-        return (long)(header[8] & 0xFF) << 56 |
-               (long)(header[9] & 0xFF) << 48 |
-               (long)(header[10] & 0xFF) << 40 |
-               (long)(header[11] & 0xFF) << 32 |
-               (long)(header[12] & 0xFF) << 24 |
-               (long)(header[13] & 0xFF) << 16 |
-               (long)(header[14] & 0xFF) << 8 |
-               (long)(header[15] & 0xFF);
+        return (long) (header[8] & 0xFF) << 56 |
+                (long) (header[9] & 0xFF) << 48 |
+                (long) (header[10] & 0xFF) << 40 |
+                (long) (header[11] & 0xFF) << 32 |
+                (long) (header[12] & 0xFF) << 24 |
+                (long) (header[13] & 0xFF) << 16 |
+                (long) (header[14] & 0xFF) << 8 |
+                (long) (header[15] & 0xFF);
     }
 
     private int extractLength(byte[] header) {
         return (header[16] & 0xFF) << 21 |
-               (header[17] & 0xFF) << 13 |
-               (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0xFF);
+                (header[17] & 0xFF) << 13 |
+                (header[18] & 0xFF) << 5 |
+                ((header[19] >> 3) & 0xFF);
     }
 
     private int extractChecksum(byte[] header) {
         return (header[20] & 0xFF) << 8 |
-               (header[21] & 0xFF);
+                (header[21] & 0xFF);
     }
 
     private boolean extractSYNFlag(byte[] header) {
