@@ -127,8 +127,7 @@ public class Sender {
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
                     // Send data segment
-                    String flagList = "- - - D";
-                    // int flagNum = DATA;
+                    String flagList = "- A - D";
                     int flagNum = (DATA | ACK);
 
                     this.sendPacket(data, flagNum, flagList);
@@ -247,8 +246,8 @@ public class Sender {
                 Timer timer = new Timer(timeoutDuration);
                 retransmissionTimers.put(sequenceNumber, timer);
 
-                // Associate the sent seqNum with an expected ackNum
-                ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
+                // Associate the sent seqNum (as the value) with its expected ackNum (as the key)
+                ackToSeqMap.put(sequenceNumber+extractLength(dataPkt), sequenceNumber);
 
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(sequenceNumber, dataPkt);
