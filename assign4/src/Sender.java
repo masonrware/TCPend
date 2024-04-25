@@ -139,6 +139,7 @@ public class Sender {
             }
         });
 
+        System.out.println("\n====>STARTING RECEIVER THREAD<====\n");
         Thread receiverThread = new Thread(() -> {
             try {
                 // Receive forever (until we are done sending)
@@ -251,23 +252,6 @@ public class Sender {
 
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(sequenceNumber, dataPkt);
-
-                System.out.println("Put seq num: " + sequenceNumber);
-
-                System.out.println("retransmissionTimers:");
-                for (Map.Entry<Integer, Timer> entry: retransmissionTimers.entrySet()) {
-                    System.out.println(entry.getKey() + " " + entry.getValue());
-                }
-
-                System.out.println("ackToSeqMap:");
-                for (Map.Entry<Integer, Integer> entry: ackToSeqMap.entrySet()) {
-                    System.out.println(entry.getKey() + " " + entry.getValue());
-                }
-
-                System.out.println("sentPackets:");
-                for (Map.Entry<Integer, byte[]> entry: sentPackets.entrySet()) {
-                    System.out.println(entry.getKey() + " " + Arrays.toString(entry.getValue()));
-                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -338,6 +322,9 @@ public class Sender {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
+
+            System.out.println("RECEIVED: " + Arrays.toString(recvPacketData));
+            
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
 
