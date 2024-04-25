@@ -49,6 +49,7 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    private Queue<swStruct> swQueue;
 
     private int firstUnackedSequenceNum = 0;
 
@@ -77,6 +78,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
+        this.swQueue = new LinkedList<>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -241,28 +243,38 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            try {
-                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                // Log the timer for retransmission
-                Timer timer = new Timer(timeoutDuration);
-                timer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        resendPacket(sequenceNumber);
-                    }
-                });
-                retransmissionTimers.put(sequenceNumber, timer);
-                // Associate the sent seqNum with an expected ackNum
-                ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
-                // Store the sent packet in sentPackets for tracking
-                sentPackets.put(sequenceNumber, dataPkt);
-            } catch (IOException e) {
-                e.printStackTrace();
+            // Check if there is space in the sliding window
+            if (sentPackets.size() < this.sws) {
+                try {
+                    sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+                    // Log the timer for retransmission
+                    Timer timer = new Timer(timeoutDuration);
+                    timer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            resendPacket(sequenceNumber);
+                        }
+                    });
+                    retransmissionTimers.put(sequenceNumber, timer);
+                    // Associate the sent seqNum with an expected ackNum
+                    ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
+                    // Store the sent packet in sentPackets for tracking
+                    sentPackets.put(sequenceNumber, dataPkt);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+    
+                // Book-keeping
+                this.sequenceNumber += extractLength(dataHdr);
+                this.totalDataTransferred += extractLength(dataHdr);
+            }
+            else {  // No space in sliding window, create swStruct and add to queue
+                // Hold onto packet, current sequenceNumber, flag list
+                swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
+                swQueue.add(qPkt);
             }
 
-            // Book-keeping
-            this.sequenceNumber += extractLength(dataHdr);
-            this.totalDataTransferred += extractLength(dataHdr);
+            
         }
     }
 
@@ -392,6 +404,11 @@ public class Sender {
             }
 
             // TODO sliding window adjustment
+            if (swQueue.size() > 0){
+                swStruct nextPkt = swQueue.poll();
+                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            }
+            
 
             // Adjust sliding window
             // Perform necessary actions based on the sliding window
@@ -552,6 +569,31 @@ public class Sender {
 
     private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
+    }
+
+    // For adding packets to send queue
+    public class swStruct {
+        private byte[] pkt;
+        private int flagNum;
+        private String flagList;
+
+        public swStruct(byte[] pkt, int flagNum, String flagList){
+            this.pkt = pkt;
+            this.flagNum = flagNum;
+            this.flagList = flagList;
+        }
+
+        public byte[] getPkt(){
+            return this.pkt;
+        }
+
+        public int getFlagNum(){
+            return this.flagNum;
+        }
+
+        public String getFlagList(){
+            return this.flagList;
+        }
     }
 
     // Inner class representing a timer
