@@ -139,7 +139,6 @@ public class Sender {
             }
         });
 
-        System.out.println("\n====>STARTING RECEIVER THREAD<====\n");
         Thread receiverThread = new Thread(() -> {
             try {
                 // Receive forever (until we are done sending)
@@ -334,11 +333,6 @@ public class Sender {
                     outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                             extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
                     
-                    // // Handle unacked packet
-                    // Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
-                    // if (seqNumber != null) { 
-                    //     handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
-                    // }
                     sentPackets.remove(0);
                     retransmissionTimers.remove(0);
 
@@ -364,6 +358,8 @@ public class Sender {
                 // TODO: what do we have to do for an ack?
                 // 3. check if we are finished
 
+                System.out.println((fileSize + 1) + (totalPacketsSent * HEADER_SIZE));
+                
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (lastAckedSeqNum == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
                     flagList = "- - F -";
