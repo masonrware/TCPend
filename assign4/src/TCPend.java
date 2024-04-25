@@ -6,7 +6,7 @@ public class TCPend {
     
     public static void main(String[] args){
         System.out.println(args.length);
-        if (args.length == 14){         // Sender
+        if (args.length == 12){         // Sender
             if (!args[1].equals("-p") || !args[3].equals("-s") || !args[5].equals("-a")
                                       || !args[7].equals("f") || !args[9].equals("-m") || !args[11].equals("-c")) {
                 System.out.println("Usage for sender: java TCPend -p <port> -s <remote IP> -a <remote port> f <file name> -m <mtu> -c <sws>");
@@ -27,7 +27,7 @@ public class TCPend {
                 // Use DatagramSocket for UDP connection, does not create a stream
                 // https://www.baeldung.com/udp-in-java
         }
-        else if (args.length == 10){     // Receiver
+        else if (args.length == 8){     // Receiver
             if (!args[1].equals("-p") || !args[3].equals("-m") || !args[5].equals("-c") || !args[7].equals("-f")) {
                 System.out.println("Usage for receiver: java TCPend -p <port> -m <mtu> -c <sws> -f <file name>");
                 return;
