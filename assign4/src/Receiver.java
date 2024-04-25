@@ -94,11 +94,9 @@ public class Receiver {
             this.socket.receive(synPacket); // blocking !
             synchronized (lock) {
                 // Expect a SYN-ACK packet
-                System.out.println(Arrays.toString(synPacket.getData()));
-
                 this.remoteAddress = synPacket.getAddress();
                 this.remotePort = synPacket.getPort();
-                
+
                 if (extractSYNFlag(synPacket.getData())) {
                     // Only init connection if the syn packet's seq num is 0
                     if(extractSequenceNumber(synPacket.getData()) == 0) {
@@ -145,7 +143,7 @@ public class Receiver {
             byte[] dataPkt = new byte[HEADER_SIZE];
 
             byte[] hdr = createHeader(0, flagNum, timeStamp);
-            System.out.println(hdr);
+            // System.out.println(hdr);
 
             System.arraycopy(hdr, 0, dataPkt, 0, HEADER_SIZE);
 

@@ -239,15 +239,15 @@ public class Sender {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                 // Log the timer for retransmission
                 Timer timer = new Timer(timeoutDuration);
-                timer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        resendPacket(sequenceNumber);
-                    }
-                });
-                retransmissionTimers.put(sequenceNumber, timer);
-                // Store the sent packet in sentPackets for tracking
-                sentPackets.put(sequenceNumber, dataPkt);
+                // timer.schedule(new TimerTask() {
+                //     @Override
+                //     public void run() {
+                //         resendPacket(sequenceNumber);
+                //     }
+                // });
+                // retransmissionTimers.put(sequenceNumber, timer);
+                // // Store the sent packet in sentPackets for tracking
+                // sentPackets.put(sequenceNumber, dataPkt);
             } catch (IOException e) {
                 e.printStackTrace();
             }
