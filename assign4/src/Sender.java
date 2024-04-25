@@ -568,12 +568,12 @@ public class Sender {
             return System.currentTimeMillis() - startTime >= timeout;
         }
 
-        // Method to cancel the timer
-        public void cancel() {
-            if (timerTask != null) {
-                timerTask.cancel();
-            }
-        }
+        // // Method to cancel the timer
+        // public void cancel() {
+        //     if (timerTask != null) {
+        //         timerTask.cancel();
+        //     }
+        // }
 
         // // Method to schedule a task for the timer
         // public void schedule(TimerTask task) {
