@@ -163,7 +163,7 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
-                        System.out.println("<<<THREAD SEES: " + entry.getKey());
+                        System.out.println("<<<THREAD SEES: " + entry.getKey() + " EXPIRED?: " + timer.hasExpired() + " DEAD? " + timer.isDead());
                         if (!timer.isDead() && timer.hasExpired()) {
                             System.out.println("<<<THREAD IS RETRANSMITTING: " + entry.getKey());
                             resendPacket(entry.getKey());
