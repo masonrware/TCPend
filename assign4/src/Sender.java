@@ -237,7 +237,7 @@ public class Sender {
 
             try {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                if(this.sequenceNumber > 1) {
+                if(this.sequenceNumber != 1) {
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
                     retransmissionTimers.put(this.sequenceNumber, timer);
@@ -338,7 +338,7 @@ public class Sender {
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
                 
                 sentPackets.remove(0);
-                // retransmissionTimers.remove(0);
+                retransmissionTimers.remove(0);
 
                 ackNumber++;
                 sequenceNumber++;
