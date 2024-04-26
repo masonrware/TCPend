@@ -4,6 +4,9 @@ import java.util.*;
 
 public class Sender {
     private final Object lock = new Object(); // Object for locking shared resources
+    private Thread senderThread;
+    private Thread receiverThread;
+    private Thread timeoutThread;
 
     private static final int MAX_RETRANSMISSION_ATTEMPTS = 16; // Maximum number of retransmission attempts
     private static final int HEADER_SIZE = 24;
@@ -115,7 +118,7 @@ public class Sender {
         }
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
-        Thread senderThread = new Thread(() -> {
+        this.senderThread = new Thread(() -> {
             try {
                 // Open the file for reading
                 FileInputStream fileInputStream = new FileInputStream(fileName);
@@ -139,7 +142,7 @@ public class Sender {
             }
         });
 
-        Thread receiverThread = new Thread(() -> {
+        this.receiverThread = new Thread(() -> {
             try {
                 // Receive forever (until we are done sending)
                 while (true) {
@@ -158,7 +161,7 @@ public class Sender {
         });
 
         // Thread for monitoring retransmissions and handling timeouts
-        Thread timeoutThread = new Thread(() -> {
+        this.timeoutThread = new Thread(() -> {
             while (true) {
                 synchronized (lock) {
                     // Check for expired retransmission timers
@@ -182,9 +185,9 @@ public class Sender {
             }
         });
 
-        senderThread.start();
-        receiverThread.start();
-        timeoutThread.start();
+        this.senderThread.start();
+        this.receiverThread.start();
+        this.timeoutThread.start();
     }
 
     // Method to handle TCP handshake only if no packets have been sent
@@ -324,22 +327,40 @@ public class Sender {
             int flagNum = 0;
 
             // Handle SYN-ACK and FIN-ACK
-            if (extractSYNFlag(recvPacketData) || extractFINFlag(recvPacketData)) {
-                    flagList = extractSYNFlag(recvPacketData) ? "S A - -" : "F A - -";
-                    outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
-                            extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
-                    
-                    sentPackets.remove(0);
-                    retransmissionTimers.remove(0);
+            if (extractSYNFlag(recvPacketData)) {
+                flagList = "S A - -";
+                outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
+                        extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
+                
+                sentPackets.remove(0);
+                retransmissionTimers.remove(0);
 
+                ackNumber++;
+                sequenceNumber++;
+                flagList = "- A - -";
+                flagNum = ACK;
 
-                    ackNumber++;
-                    sequenceNumber++;
-                    flagList = "- A - -";
-                    flagNum = ACK;
+                byte[] empty_data = new byte[0];
+                sendPacket(empty_data, flagNum, flagList);
+            } else if (extractFINFlag(recvPacketData)) {
+                flagList = "- A F -";
+                outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
+                        extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
+                
+                ackNumber++;
+                sequenceNumber++;
+                flagList = "- A - -";
+                flagNum = ACK;
 
-                    byte[] empty_data = new byte[0];
-                    sendPacket(empty_data, flagNum, flagList);
+                byte[] empty_data = new byte[0];
+                sendPacket(empty_data, flagNum, flagList);
+
+                printStatistics();
+                this.socket.close();
+
+                // this.senderThread.stop();
+                // receiverThread.start();
+                // timeoutThread.start();
             } else { // Handle regular ACK
                 flagList = "- A - -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
@@ -358,7 +379,7 @@ public class Sender {
                 System.out.println((fileSize + 1) + ((totalPacketsSent-2) * HEADER_SIZE));
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
-                if (extractAcknowledgmentNumber(recvPacketData) == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
+                if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
                     flagList = "- - F -";
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
