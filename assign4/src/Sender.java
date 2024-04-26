@@ -214,9 +214,6 @@ public class Sender {
                 } else {
                     throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
                 }
-
-                // Only increment total packet count if handshake succeeds
-                totalPacketsSent += 2;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -286,7 +283,6 @@ public class Sender {
             }
             // Resend the packet
             try {
-                System.out.println("\n>>resend " + seqNum);
                 sendUDPPacket(packet, flagList, seqNum);
                 // Restart the timer
                 Timer timer = retransmissionTimers.get(seqNum);
@@ -358,11 +354,11 @@ public class Sender {
                 // TODO: what do we have to do for an ack?
                 // 3. check if we are finished
 
-                System.out.println(fileSize + " " + totalPacketsSent + " " + HEADER_SIZE);
+                System.out.println(Arrays.toString(recvPacketData));
                 System.out.println((fileSize + 1) + ((totalPacketsSent-2) * HEADER_SIZE));
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
-                if (lastAckedSeqNum == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
+                if (extractAcknowledgmentNumber(recvPacketData) == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
                     flagList = "- - F -";
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
