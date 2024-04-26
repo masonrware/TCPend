@@ -389,19 +389,26 @@ public class Sender {
         synchronized (lock) {
             // Only remove the acknowledged packet from the sent packets data structure if we have
             // an ack for the next successive packet
-            Iterator<Map.Entry<Integer, byte[]>> iterator = sentPackets.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<Integer, byte[]> entry = iterator.next();
+            Iterator<Map.Entry<Integer, byte[]>> unAckedIterator = sentPackets.entrySet().iterator();
+            while (unAckedIterator.hasNext()) {
+                Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
                     System.out.println(">>>REMOVING: " + entry.getKey());
-                    System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
-
-                    iterator.remove(); // Safe removal using iterator
+                    unAckedIterator.remove(); // Safe removal using iterator
+                }
+            }
+            
+            Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
+            while (retransTimerIterator.hasNext()) {
+                Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
+                if (entry.getKey() < seqNum) {
+                    System.out.println(">>>REMOVING: " + entry.getKey());
+                    retransTimerIterator.remove(); // Safe removal using iterator
                 }
             }
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            retransmissionTimers.remove(seqNum);
+            // retransmissionTimers.remove(seqNum);
             // if (timer != null) {
             //     timer.cancel();
             // }
