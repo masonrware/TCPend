@@ -393,6 +393,7 @@ public class Sender {
                 Map.Entry<Integer, byte[]> entry = iterator.next();
                 if (entry.getKey() < seqNum) {
                     System.out.println(">>>REMOVING: " + entry.getKey());
+                    System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
                     iterator.remove(); // Safe removal using iterator
                 }
             }
