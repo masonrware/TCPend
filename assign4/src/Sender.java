@@ -320,6 +320,8 @@ public class Sender {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
+            System.out.println("[recv]: " + Arrays.toString(recvPacketData));
+
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
 
