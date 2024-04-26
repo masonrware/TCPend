@@ -234,6 +234,9 @@ public class Sender {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(data.length, flagNum);
 
+            System.out.println("PRINTING HEADER");
+            printHeader(dataHdr);
+
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
 
@@ -546,6 +549,17 @@ public class Sender {
 
         // Flip all 16 bits to get the checksum
         return ~sum & 0xFFFF;
+    }
+
+    public void printHeader(byte[] byteArray) {
+        for (int i = 0; i < byteArray.length; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
     }
 
     private int extractSequenceNumber(byte[] header) {

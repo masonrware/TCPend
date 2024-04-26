@@ -373,6 +373,17 @@ public class Receiver {
         return ~sum & 0xFFFF;
     }
 
+    public void printHeader(byte[] byteArray) {
+        for (int i = 0; i < byteArray.length; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
+    }
+
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
                (header[1] & 0xFF) << 16 |
