@@ -164,8 +164,7 @@ public class Sender {
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
                         if (!timer.isDead() && timer.hasExpired()) {
-                            int sequenceNumber = entry.getKey();
-                            resendPacket(sequenceNumber);
+                            resendPacket(entry.getKey());
                             // Restart the timer
                             timer.restart();
                         }
