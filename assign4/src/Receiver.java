@@ -232,6 +232,7 @@ public class Receiver {
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
+                    System.out.println("235: Received expected packet, extractLength: " + extractLength(recvPacketData));
                     byte[] payload = extractPayload(recvPacketData);
 
                     try {
@@ -249,6 +250,7 @@ public class Receiver {
                     byte[] data = swMap.get(this.ackNumber);
                     while (data != null){
                         try {
+                            System.out.println("Writing data to " + this.fileName);
                             this.outputStream.write(data);
                         }
                         catch (IOException e){
@@ -263,6 +265,7 @@ public class Receiver {
                 }
                 else {  // Data out of order
                     if (swMap.size() < this.sws){   // There is space to stash data
+                        System.out.println("No room in sliding window, store in buffer");
                         swMap.put(recvSeqNum, recvPacketData);
                     }
                 }
@@ -409,6 +412,7 @@ public class Receiver {
 
     private byte[] extractPayload(byte[] packet){
         int dataLen = extractLength(packet);
+        System.out.println("extractPayload: data length is " + dataLen);
         byte[] data = new byte[dataLen];
         System.arraycopy(packet, 24, data, 0, dataLen);
 

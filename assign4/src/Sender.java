@@ -128,7 +128,6 @@ public class Sender {
 
                 // Buffer is of size mtu
                 while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
-                    System.out.println("Read " + bytesRead + " bytes into buffer, sending to rec...");
                     byte[] data = new byte[bytesRead];
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
@@ -266,6 +265,7 @@ public class Sender {
             }
             else {  // No space in sliding window, create swStruct and add to queue
                 // Hold onto packet, current sequenceNumber, flag list
+                System.out.println("No room to send in sliding window, adding to buffer");
                 swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
                 swQueue.add(qPkt);
             }
@@ -423,6 +423,7 @@ public class Sender {
 
             // TODO sliding window adjustment
             if (swQueue.size() > 0){
+                System.out.println("Space available in sliding window, sending packet from queue");
                 swStruct nextPkt = swQueue.poll();
                 sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             }
