@@ -374,14 +374,29 @@ public class Receiver {
     }
 
     public void printHeader(byte[] byteArray) {
-        for (int i = 0; i < byteArray.length; i += 4) {
+        // for (int i = 0; i < byteArray.length; i += 4) {
+        //     StringBuilder chunk = new StringBuilder();
+        //     for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+        //         // Convert byte to binary string and append to chunk
+        //         chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+        //     }
+        //     System.out.println(chunk);
+        // }
+        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
+        for (int i = 0; i < limit; i += 4) {
             StringBuilder chunk = new StringBuilder();
-            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+            for (int j = 0; j < 4 && i + j < limit; j++) {
                 // Convert byte to binary string and append to chunk
                 chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
             }
             System.out.println(chunk);
         }
+    }
+
+    public void printLen(int number) {
+        // Use Integer.toBinaryString to get the binary representation
+        String binary = Integer.toBinaryString(number);
+        System.out.println(binary);
     }
 
     private int extractSequenceNumber(byte[] header) {
