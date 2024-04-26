@@ -163,7 +163,7 @@ public class Sender {
         // Thread for monitoring retransmissions and handling timeouts
         this.timeoutThread = new Thread(() -> {
             while (true) {
-                synchronized (retransmissionTimers) {
+                synchronized (lock) {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
@@ -387,12 +387,14 @@ public class Sender {
 
     // Method to handle acknowledgment of a packet
     private void handleAcknowledgment(int seqNum, long ackTimestamp) {
-        synchronized (sentPackets) {
+        synchronized (lock) {
             // Only remove the acknowledged packet from the sent packets data structure if we have
             // an ack for the next successive packet
-            for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
-                if(entry.getKey() < seqNum) {
-                    sentPackets.remove(seqNum);
+            Iterator<Map.Entry<Integer, byte[]>> iterator = sentPackets.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Integer, byte[]> entry = iterator.next();
+                if (entry.getKey() < seqNum) {
+                    iterator.remove(); // Safe removal using iterator
                 }
             }
 
