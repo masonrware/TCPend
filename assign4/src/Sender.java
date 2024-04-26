@@ -128,6 +128,7 @@ public class Sender {
 
                 // Buffer is of size mtu
                 while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
+                    System.out.println("Read " + bytesRead + " bytes into buffer, sending to rec...");
                     byte[] data = new byte[bytesRead];
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
