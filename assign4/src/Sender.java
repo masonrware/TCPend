@@ -557,7 +557,7 @@ public class Sender {
         return (header[16] & 0xFF) << 21 |
                 (header[17] & 0xFF) << 13 |
                 (header[18] & 0xFF) << 5 |
-                ((header[19] >> 3) & 0xFF);
+                ((header[19] >> 3) & 0x1F);
     }
 
     private int extractChecksum(byte[] header) {
