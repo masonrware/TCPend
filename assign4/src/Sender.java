@@ -399,22 +399,16 @@ public class Sender {
                 }
             }
             
-            Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
-            while (retransTimerIterator.hasNext()) {
-                Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
-                if (entry.getKey() < seqNum) {
-                    System.out.println(">>>REMOVING: " + entry.getKey());
-                    System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
-                    for(Map.Entry<Integer, Timer> innerentry: retransmissionTimers.entrySet()) {
-                        System.out.println(innerentry.getKey());
-                    }
-        
-                    retransTimerIterator.remove(); // Safe removal using iterator
-                }
-            }
+            // Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
+            // while (retransTimerIterator.hasNext()) {
+            //     Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
+            //     if (entry.getKey() < seqNum) {
+            //         retransTimerIterator.remove(); // Safe removal using iterator
+            //     }
+            // }
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            // retransmissionTimers.remove(seqNum);
+            retransmissionTimers.remove(seqNum);
             // if (timer != null) {
             //     timer.cancel();
             // }
