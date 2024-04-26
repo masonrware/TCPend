@@ -5,6 +5,7 @@ import java.util.*;
 
 public class Receiver {
     private final Object lock = new Object(); // Object for locking shared resources
+    private Timer synAckTimer;
 
     private static final int HEADER_SIZE = 24;
 
@@ -114,8 +115,8 @@ public class Receiver {
             DatagramPacket ackPacket = new DatagramPacket(this.buffer, this.buffer.length);
             
             // Set up a timer to resend SYN-ACK if no ACK is received within 5 seconds
-            Timer timer = new Timer();
-            timer.schedule(new TimerTask() {
+            synAckTimer = new Timer();
+            synAckTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
                     // Resend SYN-ACK packet
@@ -129,7 +130,7 @@ public class Receiver {
 
             this.socket.receive(ackPacket); // blocking !
 
-            timer.cancel();
+            synAckTimer.cancel();
 
 
             synchronized (lock) {
