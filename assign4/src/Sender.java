@@ -130,6 +130,8 @@ public class Sender {
                 while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
                     byte[] data = new byte[bytesRead];
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
+                    System.out.println("BYTES READ: " + bytesRead);
+                    System.out.println("BUFFER SIZE: " + this.buffer.length);
 
                     // Send data segment
                     String flagList = "- A - D";
