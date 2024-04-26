@@ -249,14 +249,14 @@ public class Receiver {
     // Method to close the connection and print statistics
     private void printStatistics() {
         System.out.println("[DONE] Finished communicating with" + this.remoteAddress +"\n Final statistics:");
-        System.out.println("Total Data Transferred: \t" + totalDataTransferred + " bytes");
-        System.out.println("Total Data Received: \t" + totalDataReceived + " bytes");
-        System.out.println("Total Packets Sent: \t" + totalPacketsSent + " packets");
-        System.out.println("Total Packets Received: \t" + totalPacketsReceived + " packets");
-        System.out.println("Total Out-of-Sequence Packets: \t" + totalOutOfSequencePackets + " packets");
+        System.out.println("Total Data Transferred: \t\t\t" + totalDataTransferred + " bytes");
+        System.out.println("Total Data Received: \t\t\t\t" + totalDataReceived + " bytes");
+        System.out.println("Total Packets Sent: \t\t\t\t" + totalPacketsSent + " packets");
+        System.out.println("Total Packets Received: \t\t\t" + totalPacketsReceived + " packets");
+        System.out.println("Total Out-of-Sequence Packets: \t\t\t" + totalOutOfSequencePackets + " packets");
         System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
-        System.out.println("Total Number of Retransmissions: \t" + totalRetransmissions + " retransmits");
-        System.out.println("Total Duplicate Acknowledgements: \t" + totalDuplicateAcks + " ACKs");
+        System.out.println("Total Number of Retransmissions: \t\t" + totalRetransmissions + " retransmits");
+        System.out.println("Total Duplicate Acknowledgements: \t\t" + totalDuplicateAcks + " ACKs");
     }
 
     // Method to output segment information
