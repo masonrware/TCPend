@@ -238,6 +238,7 @@ public class Sender {
             try {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                 if(this.sequenceNumber != 1) {
+                    System.out.println(">>>ADDING " + this.sequenceNumber + " TO RETRANS MAP");
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
                     retransmissionTimers.put(this.sequenceNumber, timer);
@@ -323,8 +324,6 @@ public class Sender {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
-            System.out.println("[recv]: " + Arrays.toString(recvPacketData));
-
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
 
