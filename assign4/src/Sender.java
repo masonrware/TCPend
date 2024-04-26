@@ -263,41 +263,43 @@ public class Sender {
 
     // Method to resend a packet given its sequence number
     private void resendPacket(int seqNum) {
-        byte[] packet = sentPackets.get(seqNum);
+        synchronized(lock){
+            byte[] packet = sentPackets.get(seqNum);
 
-        String flagList = "";
-        // Build flagList
-        flagList += extractSYNFlag(packet) ? "S " : "- ";
-        flagList += extractACKFlag(packet) ? "A " : "- ";
-        flagList += extractFINFlag(packet) ? "F " : "- ";
-        flagList += (extractLength(packet) > 0) ? "D " : "- ";
+            String flagList = "";
+            // Build flagList
+            flagList += extractSYNFlag(packet) ? "S " : "- ";
+            flagList += extractACKFlag(packet) ? "A " : "- ";
+            flagList += extractFINFlag(packet) ? "F " : "- ";
+            flagList += (extractLength(packet) > 0) ? "D " : "- ";
 
-        if (packet != null) {
-            // Check if maximum retransmission attempts reached
-            int attempts = retransmissionAttempts.getOrDefault(seqNum, 0);
-            if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
-                // Stop retransmitting and report error
-                System.err.println("Maximum retransmission attempts reached for sequence number: " + seqNum);
-                Timer timer = retransmissionTimers.get(seqNum);
-                timer.markDead();
+            if (packet != null) {
+                // Check if maximum retransmission attempts reached
+                int attempts = retransmissionAttempts.getOrDefault(seqNum, 0);
+                if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
+                    // Stop retransmitting and report error
+                    System.err.println("Maximum retransmission attempts reached for sequence number: " + seqNum);
+                    Timer timer = retransmissionTimers.get(seqNum);
+                    timer.markDead();
 
-                // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
-                return;
-            }
-            // Resend the packet
-            try {
-                sendUDPPacket(packet, flagList, seqNum);
-                // Restart the timer
-                Timer timer = retransmissionTimers.get(seqNum);
-                if (timer != null) {
-                    timer.restart();
+                    // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
+                    return;
                 }
-                // Increment total retransmissions for statistics tracking
-                totalRetransmissions++;
-                // Increment the retransmission attempts counter for the current sequence number
-                retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
-            } catch (IOException e) {
-                e.printStackTrace();
+                // Resend the packet
+                try {
+                    sendUDPPacket(packet, flagList, seqNum);
+                    // Restart the timer
+                    Timer timer = retransmissionTimers.get(seqNum);
+                    if (timer != null) {
+                        timer.restart();
+                    }
+                    // Increment total retransmissions for statistics tracking
+                    totalRetransmissions++;
+                    // Increment the retransmission attempts counter for the current sequence number
+                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
