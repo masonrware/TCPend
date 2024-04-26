@@ -125,7 +125,7 @@ public class Receiver {
         
                     sendPacket(flagNum, flagList, extractTimestamp(synPacket.getData()));
                 }
-            }, 5000); // 5000 milliseconds = 5 seconds
+            }, 10000);
 
             this.socket.receive(ackPacket); // blocking !
 
