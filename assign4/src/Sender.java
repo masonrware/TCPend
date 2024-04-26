@@ -420,7 +420,7 @@ public class Sender {
             // }
 
             // Calculate the timeout duration based on the acknowledgment timestamp
-            calculateTimeoutDuration(ackTimestamp);
+            // calculateTimeoutDuration(ackTimestamp);
 
             // Check if this is a duplicate ack
             int duplicateAcks = duplicateAcksCount.getOrDefault(seqNum, 0);
