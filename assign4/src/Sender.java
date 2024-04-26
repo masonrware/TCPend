@@ -384,13 +384,18 @@ public class Sender {
     }
 
     // Method to handle acknowledgment of a packet
-    private void handleAcknowledgment(int sequenceNumber, long ackTimestamp) {
+    private void handleAcknowledgment(int seqNum, long ackTimestamp) {
         synchronized (lock) {
-            // Remove the acknowledged packet from the sent packets data structure
-            sentPackets.remove(sequenceNumber);
+            // Only remove the acknowledged packet from the sent packets data structure if we have
+            // an ack for the next successive packet
+            for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
+                if(entry.getKey() < seqNum) {
+                    sentPackets.remove(seqNum);
+                }
+            }
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            retransmissionTimers.remove(sequenceNumber);
+            retransmissionTimers.remove(seqNum);
             // if (timer != null) {
             //     timer.cancel();
             // }
@@ -399,12 +404,12 @@ public class Sender {
             calculateTimeoutDuration(ackTimestamp);
 
             // Check if this is a duplicate ack
-            int duplicateAcks = duplicateAcksCount.getOrDefault(sequenceNumber, 0);
-            duplicateAcksCount.put(sequenceNumber, duplicateAcks + 1);
+            int duplicateAcks = duplicateAcksCount.getOrDefault(seqNum, 0);
+            duplicateAcksCount.put(seqNum, duplicateAcks + 1);
             if (duplicateAcks == 3) {
                 // Trigger retransmission logic for the packet with this sequence number
-                resendPacket(sequenceNumber);
-                duplicateAcksCount.put(sequenceNumber, 0); // Reset duplicate ACK count
+                resendPacket(seqNum);
+                duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
 
             // TODO sliding window adjustment
