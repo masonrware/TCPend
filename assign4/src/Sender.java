@@ -403,6 +403,11 @@ public class Sender {
                 Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
                 if (entry.getKey() < seqNum) {
                     System.out.println(">>>REMOVING: " + entry.getKey());
+                    System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
+                    for(Map.Entry<Integer, Timer> innerentry: retransmissionTimers.entrySet()) {
+                        System.out.println(innerentry.getKey());
+                    }
+        
                     retransTimerIterator.remove(); // Safe removal using iterator
                 }
             }
