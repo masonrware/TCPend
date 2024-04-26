@@ -385,7 +385,7 @@ public class Sender {
             while (iterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = iterator.next();
                 if (entry.getKey() < seqNum) {
-                    System.out.println(">>>REMOVING: " + seqNum);
+                    System.out.println(">>>REMOVING: " + entry.getKey());
                     iterator.remove(); // Safe removal using iterator
                 }
             }
