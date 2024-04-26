@@ -164,11 +164,14 @@ public class Sender {
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
                         if (!timer.isDead() && timer.hasExpired()) {
+                            System.out.println("<<<THREAD IS RETRANSMITTING: " + entry.getKey());
                             resendPacket(entry.getKey());
                             // Restart the timer
                             timer.restart();
                         }
                     }
+
+                    System.out.println("<<<THREAD IS DONE");
                 }
 
                 // Sleep for a short duration before checking again
