@@ -257,6 +257,12 @@ public class Sender {
     private void resendPacket(int seqNum) {
         synchronized(lock){
             System.out.println(">>>RESENDING: " + seqNum);
+            System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
+            for(Map.Entry<Integer, Timer> entry: retransmissionTimers.entrySet()) {
+                System.out.println(entry.getKey());
+            }
+
+
             byte[] packet = sentPackets.get(seqNum);
 
             String flagList = "";
