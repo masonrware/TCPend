@@ -4,6 +4,9 @@ import java.util.*;
 
 public class Sender {
     private final Object lock = new Object(); // Object for locking shared resources
+    private Thread senderThread;
+    private Thread receiverThread;
+    private Thread timeoutThread;
 
     private static final int MAX_RETRANSMISSION_ATTEMPTS = 16; // Maximum number of retransmission attempts
     private static final int HEADER_SIZE = 24;
@@ -117,7 +120,7 @@ public class Sender {
         }
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
-        Thread senderThread = new Thread(() -> {
+        this.senderThread = new Thread(() -> {
             try {
                 // Open the file for reading
                 FileInputStream fileInputStream = new FileInputStream(fileName);
@@ -129,9 +132,8 @@ public class Sender {
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
                     // Send data segment
-                    String flagList = "- - - D";
-                    // int flagNum = DATA;
-                    int flagNum = ACK;
+                    String flagList = "- A - D";
+                    int flagNum = (DATA | ACK);
 
                     this.sendPacket(data, flagNum, flagList);
                 }
@@ -142,7 +144,7 @@ public class Sender {
             }
         });
 
-        Thread receiverThread = new Thread(() -> {
+        this.receiverThread = new Thread(() -> {
             try {
                 // Receive forever (until we are done sending)
                 while (true) {
@@ -161,13 +163,13 @@ public class Sender {
         });
 
         // Thread for monitoring retransmissions and handling timeouts
-        Thread timeoutThread = new Thread(() -> {
+        this.timeoutThread = new Thread(() -> {
             while (true) {
                 synchronized (lock) {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
-                        if (timer.hasExpired()) {
+                        if (!timer.isDead() && timer.hasExpired()) {
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
                             // Restart the timer
@@ -185,9 +187,9 @@ public class Sender {
             }
         });
 
-        senderThread.start();
-        receiverThread.start();
-        timeoutThread.start();
+        this.senderThread.start();
+        this.receiverThread.start();
+        this.timeoutThread.start();
     }
 
     // Method to handle TCP handshake only if no packets have been sent
@@ -217,9 +219,6 @@ public class Sender {
                 } else {
                     throw new IOException("Handshake Failed -- did not receive SYN-ACK from receiver.");
                 }
-
-                // Only increment total packet count if handshake succeeds
-                totalPacketsSent += 2;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -279,8 +278,8 @@ public class Sender {
     }
 
     // Method to resend a packet given its sequence number
-    private void resendPacket(int sequenceNumber) {
-        byte[] packet = sentPackets.get(sequenceNumber);
+    private void resendPacket(int seqNum) {
+        byte[] packet = sentPackets.get(seqNum);
 
         String flagList = "";
         // Build flagList
@@ -291,25 +290,28 @@ public class Sender {
 
         if (packet != null) {
             // Check if maximum retransmission attempts reached
-            int attempts = retransmissionAttempts.getOrDefault(sequenceNumber, 0);
+            int attempts = retransmissionAttempts.getOrDefault(seqNum, 0);
             if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
                 // Stop retransmitting and report error
-                System.err.println("Maximum retransmission attempts reached for sequence number: " + sequenceNumber);
+                System.err.println("Maximum retransmission attempts reached for sequence number: " + seqNum);
+                Timer timer = retransmissionTimers.get(seqNum);
+                timer.markDead();
+
                 // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                 return;
             }
             // Resend the packet
             try {
-                sendUDPPacket(packet, flagList, sequenceNumber);
+                sendUDPPacket(packet, flagList, seqNum);
                 // Restart the timer
-                Timer timer = retransmissionTimers.get(sequenceNumber);
+                Timer timer = retransmissionTimers.get(seqNum);
                 if (timer != null) {
                     timer.restart();
                 }
                 // Increment total retransmissions for statistics tracking
                 totalRetransmissions++;
                 // Increment the retransmission attempts counter for the current sequence number
-                retransmissionAttempts.put(sequenceNumber, retransmissionAttempts.getOrDefault(sequenceNumber, 0) + 1);
+                retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -317,7 +319,7 @@ public class Sender {
     }
 
     // Method to send UDP packet
-    private void sendUDPPacket(byte[] data, String flagList, int sequenceNumber) throws IOException {
+    private void sendUDPPacket(byte[] data, String flagList, int seqNum) throws IOException {
         // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
@@ -325,7 +327,7 @@ public class Sender {
         this.totalPacketsSent += 1;
 
         // Output information about the sent packet
-        outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
+        outputSegmentInfo("snd", flagList, seqNum, extractLength(data), this.ackNumber);
     }
 
     /*
@@ -341,19 +343,38 @@ public class Sender {
             int flagNum = 0;
 
             // Handle SYN-ACK and FIN-ACK
-            if (extractACKFlag(recvPacketData)) {
-                if (extractSYNFlag(recvPacketData) || extractFINFlag(recvPacketData)) {
-                    flagList = extractSYNFlag(recvPacketData) ? "S A - -" : "F A - -";
-                    outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
-                            extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
-                    ackNumber++;
-                    sequenceNumber++;
-                    flagList = "- A - -";
-                    flagNum = ACK;
+            if (extractSYNFlag(recvPacketData)) {
+                flagList = "S A - -";
+                outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
+                        extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
+                
+                sentPackets.remove(0);
+                retransmissionTimers.remove(0);
 
-                    byte[] empty_data = new byte[0];
-                    sendPacket(empty_data, flagNum, flagList);
-                }
+                ackNumber++;
+                sequenceNumber++;
+                flagList = "- A - -";
+                flagNum = ACK;
+
+                byte[] empty_data = new byte[0];
+                sendPacket(empty_data, flagNum, flagList);
+            } else if (extractFINFlag(recvPacketData)) {
+                flagList = "- A F -";
+                outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
+                        extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
+                
+                ackNumber++;
+                sequenceNumber++;
+                flagList = "- A - -";
+                flagNum = ACK;
+
+                byte[] empty_data = new byte[0];
+                sendPacket(empty_data, flagNum, flagList);
+
+                printStatistics();
+                
+                // Successfully exit
+                System.exit(1);
             } else { // Handle regular ACK
                 flagList = "- A - -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
@@ -369,7 +390,7 @@ public class Sender {
                 // 3. check if we are finished
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
-                if (lastAckedSeqNum == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
+                if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
                     flagList = "- - F -";
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
@@ -386,10 +407,10 @@ public class Sender {
             sentPackets.remove(sequenceNumber);
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            Timer timer = retransmissionTimers.remove(sequenceNumber);
-            if (timer != null) {
-                timer.cancel();
-            }
+            retransmissionTimers.remove(sequenceNumber);
+            // if (timer != null) {
+            //     timer.cancel();
+            // }
 
             // Calculate the timeout duration based on the acknowledgment timestamp
             calculateTimeoutDuration(ackTimestamp);
@@ -423,7 +444,14 @@ public class Sender {
 
     // Method to close the connection and print statistics
     private void printStatistics() {
-        // Implement closing logic and print statistics here
+        System.out.println("[DONE] Finished communicating with" + this.remoteAddress +"\nFinal statistics:");
+        System.out.println("Total Data Transferred: \t\t\t" + totalDataTransferred + " bytes");
+        System.out.println("Total Data Received: \t\t\t\t" + totalDataReceived + " bytes");
+        System.out.println("Total Packets Sent: \t\t\t\t" + totalPacketsSent + " packets");
+        System.out.println("Total Packets Received: \t\t\t" + totalPacketsReceived + " packets");
+        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
+        System.out.println("Total Number of Retransmissions: \t\t" + totalRetransmissions + " retransmits");
+        System.out.println("Total Duplicate Acknowledgements: \t\t" + totalDuplicateAcks + " ACKs");
     }
 
     // Method to output segment information
@@ -466,7 +494,7 @@ public class Sender {
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(System.nanoTime());
             // dataOutputStream.writeInt(length | (afs << 13));
-            dataOutputStream.writeInt((length << 13) | afs); // Corrected the order of bit shifting
+            dataOutputStream.writeInt((length << 3) | afs); // Corrected the order of bit shifting
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
@@ -600,7 +628,8 @@ public class Sender {
     public class Timer {
         private final long timeout;
         private long startTime;
-        private TimerTask timerTask;
+        private boolean dead = false;
+        // private TimerTask timerTask;
 
         public Timer(long timeout) {
             this.timeout = timeout;
@@ -615,18 +644,26 @@ public class Sender {
             return System.currentTimeMillis() - startTime >= timeout;
         }
 
-        // Method to cancel the timer
-        public void cancel() {
-            if (timerTask != null) {
-                timerTask.cancel();
-            }
+        public void markDead() {
+            this.dead = true;
         }
 
-        // Method to schedule a task for the timer
-        public void schedule(TimerTask task) {
-            this.timerTask = task;
-            new java.util.Timer().schedule(task, timeout);
+        public boolean isDead() {
+            return this.dead;
         }
+
+        // // Method to cancel the timer
+        // public void cancel() {
+        //     if (timerTask != null) {
+        //         timerTask.cancel();
+        //     }
+        // }
+
+        // // Method to schedule a task for the timer
+        // public void schedule(TimerTask task) {
+        //     this.timerTask = task;
+        //     new java.util.Timer().schedule(task, timeout);
+        // }
     }
 
 }
