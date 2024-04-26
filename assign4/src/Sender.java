@@ -257,6 +257,7 @@ public class Sender {
     // Method to resend a packet given its sequence number
     private void resendPacket(int seqNum) {
         synchronized(lock){
+            System.out.println(">>>RESENDING: " + seqNum);
             byte[] packet = sentPackets.get(seqNum);
 
             String flagList = "";
@@ -384,7 +385,7 @@ public class Sender {
             while (iterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = iterator.next();
                 if (entry.getKey() < seqNum) {
-                    System.out.println("REMOVING: " + seqNum);
+                    System.out.println(">>>REMOVING: " + seqNum);
                     iterator.remove(); // Safe removal using iterator
                 }
             }
