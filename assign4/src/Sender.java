@@ -248,15 +248,11 @@ public class Sender {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            resendPacket(sequenceNumber);
-                        }
-                    });
                     retransmissionTimers.put(sequenceNumber, timer);
-                    // Associate the sent seqNum with an expected ackNum
-                    ackToSeqMap.put(sequenceNumber, sequenceNumber+extractLength(dataPkt));
+
+                    // Associate the sent seqNum (as the value) with its expected ackNum (as the key)
+                    ackToSeqMap.put(sequenceNumber+extractLength(dataPkt), sequenceNumber);
+
                     // Store the sent packet in sentPackets for tracking
                     sentPackets.put(sequenceNumber, dataPkt);
                 } catch (IOException e) {
