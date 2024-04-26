@@ -402,10 +402,13 @@ public class Receiver {
         for (int i = 16; i < 20; i++){
             System.out.println(header[i]);
         }
-        return (header[16] & 0xFF) << 21 |
-               (header[17] & 0xFF) << 13 |
-               (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0xFF);
+        // return (header[16] & 0xFF) << 21 |
+        //        (header[17] & 0xFF) << 13 |
+        //        (header[18] & 0xFF) << 5 |
+        //        ((header[19] >> 3) & 0xFF);
+        return ((header[16] & 0xFF) << 16) |
+           ((header[17] & 0xFF) << 8) |
+           (header[18] & 0xF8); // Only use the upper 5 bits of header[18]
     }
 
     private int extractChecksum(byte[] header) {
