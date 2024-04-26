@@ -356,11 +356,9 @@ public class Sender {
                 sendPacket(empty_data, flagNum, flagList);
 
                 printStatistics();
-                this.socket.close();
-
-                // this.senderThread.stop();
-                // receiverThread.start();
-                // timeoutThread.start();
+                
+                // Successfully exit
+                System.exit(1);
             } else { // Handle regular ACK
                 flagList = "- A - -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
@@ -371,12 +369,6 @@ public class Sender {
                 if (seqNumber != null) { 
                     handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
                 }
-
-                // TODO: what do we have to do for an ack?
-                // 3. check if we are finished
-
-                System.out.println(Arrays.toString(recvPacketData));
-                System.out.println((fileSize + 1) + ((totalPacketsSent-2) * HEADER_SIZE));
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
@@ -428,7 +420,14 @@ public class Sender {
 
     // Method to close the connection and print statistics
     private void printStatistics() {
-        // Implement closing logic and print statistics here
+        System.out.println("[DONE] Finished communicating with" + this.remoteAddress +"\n Final statistics:");
+        System.out.println("Total Data Transferred: \t" + totalDataTransferred + " bytes");
+        System.out.println("Total Data Received: \t" + totalDataReceived + " bytes");
+        System.out.println("Total Packets Sent: \t" + totalPacketsSent + " packets");
+        System.out.println("Total Packets Received: \t" + totalPacketsReceived + " packets");
+        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
+        System.out.println("Total Number of Retransmissions: \t" + totalRetransmissions + " retransmits");
+        System.out.println("Total Duplicate Acknowledgements: \t" + totalDuplicateAcks + " ACKs");
     }
 
     // Method to output segment information

@@ -208,6 +208,11 @@ public class Receiver {
                 flagNum = FINACK;
     
                 this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
+
+                printStatistics();
+
+                // Successfully exit
+                System.exit(1);
             } // ACK (not ACK DATA)
             else if (extractACKFlag(recvPacketData) && (extractLength(recvPacketData) == 0)) {
                 flagList = "- A - -";
@@ -243,7 +248,15 @@ public class Receiver {
 
     // Method to close the connection and print statistics
     private void printStatistics() {
-        // Implement closing logic and print statistics here
+        System.out.println("[DONE] Finished communicating with" + this.remoteAddress +"\n Final statistics:");
+        System.out.println("Total Data Transferred: \t" + totalDataTransferred + " bytes");
+        System.out.println("Total Data Received: \t" + totalDataReceived + " bytes");
+        System.out.println("Total Packets Sent: \t" + totalPacketsSent + " packets");
+        System.out.println("Total Packets Received: \t" + totalPacketsReceived + " packets");
+        System.out.println("Total Out-of-Sequence Packets: \t" + totalOutOfSequencePackets + " packets");
+        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
+        System.out.println("Total Number of Retransmissions: \t" + totalRetransmissions + " retransmits");
+        System.out.println("Total Duplicate Acknowledgements: \t" + totalDuplicateAcks + " ACKs");
     }
 
     // Method to output segment information
