@@ -450,7 +450,7 @@ public class Sender {
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(System.nanoTime());
             // dataOutputStream.writeInt(length | (afs << 13));
-            dataOutputStream.writeInt((length << 13) | afs); // Corrected the order of bit shifting
+            dataOutputStream.writeInt((length << 3) | afs); // Corrected the order of bit shifting
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream

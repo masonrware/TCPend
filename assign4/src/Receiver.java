@@ -264,7 +264,7 @@ public class Receiver {
             dataOutputStream.writeInt(this.sequenceNumber);
             dataOutputStream.writeInt(this.ackNumber);
             dataOutputStream.writeLong(timeStamp);
-            dataOutputStream.writeInt((length << 13) | afs); // Corrected the order of bit shifting
+            dataOutputStream.writeInt((length << 3) | afs); // Corrected the order of bit shifting
             dataOutputStream.writeInt(0);
 
             // Close the DataOutputStream
