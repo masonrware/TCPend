@@ -358,8 +358,9 @@ public class Sender {
                 // TODO: what do we have to do for an ack?
                 // 3. check if we are finished
 
-                System.out.println((fileSize + 1) + (totalPacketsSent * HEADER_SIZE));
-                
+                System.out.println(fileSize + " " + totalPacketsSent + " " + HEADER_SIZE);
+                System.out.println((fileSize + 1) + ((totalPacketsSent-2) * HEADER_SIZE));
+
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (lastAckedSeqNum == ((fileSize + 1) + (totalPacketsSent * HEADER_SIZE))) {
                     flagList = "- - F -";
