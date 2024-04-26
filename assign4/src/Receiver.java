@@ -112,7 +112,25 @@ public class Receiver {
             }
 
             DatagramPacket ackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+            
+            // Set up a timer to resend SYN-ACK if no ACK is received within 5 seconds
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    // Resend SYN-ACK packet
+                    // Respond with a SYN-ACK
+                    String flagList = "S A - -";
+                    int flagNum = SYNACK;
+        
+                    sendPacket(flagNum, flagList, extractTimestamp(synPacket.getData()));
+                }
+            }, 5000); // 5000 milliseconds = 5 seconds
+
             this.socket.receive(ackPacket); // blocking !
+
+            timer.cancel();
+
 
             synchronized (lock) {
                 if (extractACKFlag(ackPacket.getData())) {
@@ -173,7 +191,7 @@ public class Receiver {
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
             System.out.println("[recv]: " + Arrays.toString(recvPacketData));
-            
+
             this.totalPacketsReceived += 1;
             this.totalDataReceived += extractLength(recvPacketData);
 
