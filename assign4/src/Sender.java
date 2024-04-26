@@ -67,10 +67,6 @@ public class Sender {
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
 
-    // Map to store the mapping between acknowledgment numbers and sequence numbers
-    private Map<Integer, Integer> ackToSeqMap = new HashMap<>();
-
-
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
         this.remoteIP = remIP;
@@ -246,9 +242,6 @@ public class Sender {
                 Timer timer = new Timer(timeoutDuration);
                 retransmissionTimers.put(sequenceNumber, timer);
 
-                // Associate the sent seqNum (as the value) with its expected ackNum (as the key)
-                ackToSeqMap.put(sequenceNumber+extractLength(dataPkt), sequenceNumber);
-
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(sequenceNumber, dataPkt);
             } catch (IOException e) {
@@ -369,10 +362,7 @@ public class Sender {
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Handle unacked packet
-                Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
-                if (seqNumber != null) { 
-                    handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
-                }
+                handleAcknowledgment(extractAcknowledgmentNumber(recvPacketData), extractTimestamp(recvPacketData));
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
