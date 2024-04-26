@@ -237,12 +237,14 @@ public class Sender {
 
             try {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                // Log the timer for retransmission
-                Timer timer = new Timer(timeoutDuration);
-                retransmissionTimers.put(sequenceNumber, timer);
+                if(this.sequenceNumber > 1) {
+                    // Log the timer for retransmission
+                    Timer timer = new Timer(timeoutDuration);
+                    retransmissionTimers.put(this.sequenceNumber, timer);
+                }
 
                 // Store the sent packet in sentPackets for tracking
-                sentPackets.put(sequenceNumber, dataPkt);
+                sentPackets.put(this.sequenceNumber, dataPkt);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -336,7 +338,7 @@ public class Sender {
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
                 
                 sentPackets.remove(0);
-                retransmissionTimers.remove(0);
+                // retransmissionTimers.remove(0);
 
                 ackNumber++;
                 sequenceNumber++;
