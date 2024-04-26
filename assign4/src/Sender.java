@@ -173,7 +173,7 @@ public class Sender {
 
                 // Sleep for a short duration before checking again
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -264,7 +264,6 @@ public class Sender {
             for(Map.Entry<Integer, Timer> entry: retransmissionTimers.entrySet()) {
                 System.out.println(entry.getKey());
             }
-
 
             byte[] packet = sentPackets.get(seqNum);
 
@@ -393,6 +392,7 @@ public class Sender {
                 if (entry.getKey() < seqNum) {
                     System.out.println(">>>REMOVING: " + entry.getKey());
                     System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
+
                     iterator.remove(); // Safe removal using iterator
                 }
             }
