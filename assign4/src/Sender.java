@@ -600,6 +600,30 @@ public class Sender {
         return ((header[19] >> 2) & 0x1) == 1;
     }
 
+    public class swStruct {
+        private byte[] pkt;
+        private int flagNum;
+        private String flagList;
+
+        public swStruct(byte[] pkt, int flagNum, String flagList){
+            this.pkt = pkt;
+            this.flagNum = flagNum;
+            this.flagList = flagList;
+        }
+
+        public byte[] getPkt(){
+            return this.pkt;
+        }
+
+        public int getFlagNum(){
+            return this.flagNum;
+        }
+
+        public String getFlagList(){
+            return this.flagList;
+        }
+    }
+
     // Inner class representing a timer
     public class Timer {
         private final long timeout;
