@@ -166,7 +166,8 @@ public class Sender {
                         System.out.println("<<<THREAD SEES: " + entry.getKey() + " EXPIRED?: " + timer.hasExpired() + " DEAD? " + timer.isDead());
                         if (!timer.isDead() && timer.hasExpired()) {
                             System.out.println("<<<THREAD IS RETRANSMITTING: " + entry.getKey());
-                            resendPacket(entry.getKey());
+                            int sequenceNumber = entry.getKey();
+                            resendPacket(sequenceNumber);
                             // Restart the timer
                             timer.restart();
                         }
@@ -177,7 +178,7 @@ public class Sender {
 
                 // Sleep for a short duration before checking again
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(100);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -399,13 +400,13 @@ public class Sender {
                 }
             }
             
-            // Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
-            // while (retransTimerIterator.hasNext()) {
-            //     Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
-            //     if (entry.getKey() < seqNum) {
-            //         retransTimerIterator.remove(); // Safe removal using iterator
-            //     }
-            // }
+            Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
+            while (retransTimerIterator.hasNext()) {
+                Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
+                if (entry.getKey() < seqNum) {
+                    retransTimerIterator.remove(); // Safe removal using iterator
+                }
+            }
 
             // Cancel the retransmission timer associated with the acknowledged packet
             retransmissionTimers.remove(seqNum);
