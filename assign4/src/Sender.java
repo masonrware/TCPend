@@ -441,7 +441,7 @@ public class Sender {
             // Adjust sliding window
             if (swQueue.size() > 0){
                 swStruct nextPkt = swQueue.poll();
-                System.out.println(nextPkt.getPkt() + " " + nextPkt.getFlagNum() + " " +  nextPkt.getFlagList())
+                System.out.println(Arrays.toString(nextPkt.getPkt()) + " // " + nextPkt.getFlagNum() + " // " +  nextPkt.getFlagList());
                 sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             }
         }
