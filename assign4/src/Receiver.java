@@ -5,7 +5,6 @@ import java.util.*;
 
 public class Receiver {
     private final Object lock = new Object(); // Object for locking shared resources
-    // private Timer synAckTimer;
 
     private static final int HEADER_SIZE = 24;
 
@@ -139,7 +138,6 @@ public class Receiver {
         return false;
     }
 
-    
     private void sendPacket(int flagNum, String flagList, long timeStamp) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE];
@@ -204,7 +202,7 @@ public class Receiver {
                 // Update ack num
                 // this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
                 this.ackNumber += 1;
-                //
+                
                 // Respond with a FIN-ACK
                 flagList = "- A F -";
                 flagNum = FINACK;
@@ -364,7 +362,7 @@ public class Receiver {
         return (header[16] & 0xFF) << 21 |
                (header[17] & 0xFF) << 13 |
                (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0x1F);
+               ((header[19] >> 3) & 0xFF);
     }
 
     private int extractChecksum(byte[] header) {
