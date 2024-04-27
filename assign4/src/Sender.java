@@ -393,14 +393,18 @@ public class Sender {
                     unAckedIterator.remove(); // Safe removal using iterator
                 }
             }
-            
-            for(Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
-                Timer timer = entry.getValue();
-                timer.markDead();
+
+            Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
+            while (retransTimerIterator.hasNext()) {
+                Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
+                if (entry.getKey() < seqNum) {
+                    retransTimerIterator.remove(); // Safe removal using iterator
+                }
             }
 
             // Cancel the retransmission timer associated with the acknowledged packet
             // retransmissionTimers.remove(seqNum);
+
 
             // Calculate the timeout duration based on the acknowledgment timestamp
             // calculateTimeoutDuration(ackTimestamp);
