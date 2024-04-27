@@ -24,22 +24,11 @@ public class Sender {
     private static final int FIN = 0b010;
     private static final int ACK = 0b001;
     private static final int DATA = 0b000;
-    private final Object lock = new Object(); // Object for locking shared resources
-
-    private static final int MAX_RETRANSMISSIONS = 3;
-    private static final int HEADER_SIZE = 24 * Byte.SIZE;
-
-    private static final int SYN = 0b100;
-    private static final int FIN = 0b010;
-    private static final int ACK = 0b001;
-    private static final int DATA = 0b000;
 
     // Variables to track statistics
     private int totalDataTransferred = 0;
     private int totalDataReceived = 0;
-    private int totalDataReceived = 0;
     private int totalPacketsSent = 0;
-    private int totalPacketsReceived = 0;
     private int totalPacketsReceived = 0;
     private int totalRetransmissions = 0;
     private int totalOutOfSequencePackets = 0;
@@ -64,6 +53,7 @@ public class Sender {
 
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
+
     // Map to store the number of duplicate ACKs received for each sequence number
     private Map<Integer, Integer> duplicateAcksCount = new HashMap<>();
 
@@ -75,6 +65,8 @@ public class Sender {
 
 
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
+        this.port = p;
+        this.remoteIP = remIP;
         this.remotePort = remPort;
         this.fileName = fname;
         this.mtu = m;
