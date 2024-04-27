@@ -226,20 +226,19 @@ public class Sender {
     private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
+            byte[] dataHdr = createHeader(data.length, flagNum);
+
+            System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
+            System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
+
+            int checksum = getChecksum(dataPkt);
+
+            dataPkt[22] = (byte) (checksum & 0xFF);
+            dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             // Check if there is space in the sliding window
             if (sentPackets.size() < this.sws) {
                 try {
-                    byte[] dataHdr = createHeader(data.length, flagNum);
-
-                    System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
-                    System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
-
-                    int checksum = getChecksum(dataPkt);
-
-                    dataPkt[22] = (byte) (checksum & 0xFF);
-                    dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
-
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
@@ -388,7 +387,6 @@ public class Sender {
                 System.exit(1);
             } else { // Handle regular ACK
                 flagList = "- A - -";
-                System.out.println(">>391");
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
@@ -442,8 +440,8 @@ public class Sender {
 
             // Adjust sliding window
             if (swQueue.size() > 0){
-                System.out.println(">>445");
                 swStruct nextPkt = swQueue.poll();
+                System.out.println(nextPkt.getPkt() + " " + nextPkt.getFlagNum() + " " +  nextPkt.getFlagList())
                 sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             }
         }
