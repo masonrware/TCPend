@@ -251,11 +251,9 @@ public class Receiver {
                     byte[] data = swMap.get(this.ackNumber);
                     while (data != null){
                         try {
-                            System.out.println("Writing data to " + this.fileName);
                             this.outputStream.write(data);
                         }
-                        catch (IOException e){
-                            System.out.println("WRITING BACK TO FILE FAILED");
+                        catch (Exception e){
                             e.printStackTrace();
                         }
                         
@@ -266,7 +264,6 @@ public class Receiver {
                 }
                 else {  // Data out of order
                     if (swMap.size() < this.sws){   // There is space to stash data
-                        System.out.println("No room in sliding window, store in buffer");
                         swMap.put(recvSeqNum, recvPacketData);
                     }
                 }
