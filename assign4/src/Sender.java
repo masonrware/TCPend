@@ -52,6 +52,7 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    private Queue<swStruct> swQueue;
 
     private int firstUnackedSequenceNum = 0;
 
@@ -76,6 +77,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
+        this.swQueue = new LinkedList<>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -231,6 +233,9 @@ public class Sender {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(data.length, flagNum);
 
+            System.out.println("PRINTING HEADER");
+            printHeader(dataHdr);
+
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
 
@@ -253,9 +258,7 @@ public class Sender {
                 e.printStackTrace();
             }
 
-            // Book-keeping
-            this.sequenceNumber += extractLength(dataHdr);
-            this.totalDataTransferred += extractLength(dataHdr);
+            
         }
     }
 
@@ -367,6 +370,9 @@ public class Sender {
                 // Handle unacked packet
                 handleAcknowledgment(extractAcknowledgmentNumber(recvPacketData), extractTimestamp(recvPacketData));
 
+                // TODO: what do we have to do for an ack?
+                // 3. check if we are finished
+
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
                     flagList = "- - F -";
@@ -416,6 +422,12 @@ public class Sender {
             }
 
             // TODO sliding window adjustment
+            if (swQueue.size() > 0){
+                System.out.println("Space available in sliding window, sending packet from queue");
+                swStruct nextPkt = swQueue.poll();
+                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            }
+            
 
             // Adjust sliding window
             // Perform necessary actions based on the sliding window
@@ -536,6 +548,17 @@ public class Sender {
         return ~sum & 0xFFFF;
     }
 
+    public void printHeader(byte[] byteArray) {
+        for (int i = 0; i < byteArray.length; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
+    }
+
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
                 (header[1] & 0xFF) << 16 |
@@ -583,6 +606,31 @@ public class Sender {
 
     private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
+    }
+
+    // For adding packets to send queue
+    public class swStruct {
+        private byte[] pkt;
+        private int flagNum;
+        private String flagList;
+
+        public swStruct(byte[] pkt, int flagNum, String flagList){
+            this.pkt = pkt;
+            this.flagNum = flagNum;
+            this.flagList = flagList;
+        }
+
+        public byte[] getPkt(){
+            return this.pkt;
+        }
+
+        public int getFlagNum(){
+            return this.flagNum;
+        }
+
+        public String getFlagList(){
+            return this.flagList;
+        }
     }
 
     // Inner class representing a timer
