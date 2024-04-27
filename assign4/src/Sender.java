@@ -308,16 +308,16 @@ public class Sender {
                         swQueue.add(qPkt);
                     }
 
-                    sendUDPPacket(packet, flagList, seqNum);
-                    // Restart the timer
-                    Timer timer = retransmissionTimers.get(seqNum);
-                    if (timer != null) {
-                        timer.restart();
-                    }
-                    // Increment total retransmissions for statistics tracking
-                    totalRetransmissions++;
-                    // Increment the retransmission attempts counter for the current sequence number
-                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+                    // sendUDPPacket(packet, flagList, seqNum);
+                    // // Restart the timer
+                    // Timer timer = retransmissionTimers.get(seqNum);
+                    // if (timer != null) {
+                    //     timer.restart();
+                    // }
+                    // // Increment total retransmissions for statistics tracking
+                    // totalRetransmissions++;
+                    // // Increment the retransmission attempts counter for the current sequence number
+                    // retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
