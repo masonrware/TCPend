@@ -117,40 +117,42 @@ public class Sender {
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         this.senderThread = new Thread(() -> {
-            try{ 
-                // Open the file for reading
-                FileInputStream fileInputStream = new FileInputStream(fileName);
-                int bytesRead;
+            while(true) {
+                try{ 
+                    // Open the file for reading
+                    FileInputStream fileInputStream = new FileInputStream(fileName);
+                    int bytesRead;
 
+                    // Buffer is of size mtu
+                    while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
+                        byte[] data = new byte[bytesRead];
+                        System.arraycopy(buffer, 0, data, 0, bytesRead);
 
-                // Buffer is of size mtu
-                while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
-                    byte[] data = new byte[bytesRead];
-                    System.arraycopy(buffer, 0, data, 0, bytesRead);
+                        // Check if there is space in the sliding window
+                        if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+                            // Send data segment
+                            String flagList = "- A - D";
+                            int flagNum = (DATA | ACK);
 
-                    // Check if there is space in the sliding window
-                    if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
-                        // Send data segment
-                        String flagList = "- A - D";
-                        int flagNum = (DATA | ACK);
-
-                        this.sendPacket(data, flagNum, flagList);
-    
-                        // Move to the next sequence number
-                        this.nextSeqNumber += 1;
-                    } else {
-                        // Wait for acknowledgment or timeout
-                        try {
-                            lock.wait(timeoutDuration); // Adjust timeoutDuration based on your implementation
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
+                            this.sendPacket(data, flagNum, flagList);
+        
+                            // Move to the next sequence number
+                            this.nextSeqNumber += 1;
+                        } 
+                        // else {
+                        //     // Wait for acknowledgment or timeout
+                        //     try {
+                        //         lock.wait(timeoutDuration);
+                        //     } catch (InterruptedException e) {
+                        //         e.printStackTrace();
+                        //     }
+                        // }
                     }
-                }
 
-                fileInputStream.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+                    fileInputStream.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }  
         });
 
@@ -428,7 +430,7 @@ public class Sender {
 
             // Move baseSeqNumber to the next unacknowledged packet
             while (this.baseSeqNumber < seqNum) {
-                this.baseSeqNumber += this.mtu;
+                this.baseSeqNumber += 1;
             }
         }
     }
