@@ -163,7 +163,6 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
-                        System.out.println(">> " + entry.getKey() + " " + timer.isDead() + " " + timer.hasExpired());
                         if (!timer.isDead() && timer.hasExpired()) {
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
@@ -171,8 +170,6 @@ public class Sender {
                             timer.restart();
                         }
                     }
-
-                    System.out.println("<<<THREAD IS DONE");
                 }
 
                 // Sleep for a short duration before checking again

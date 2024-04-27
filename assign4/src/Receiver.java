@@ -174,8 +174,6 @@ public class Receiver {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
-            System.out.println("[recv]: " + Arrays.toString(recvPacketData));
-
             this.totalPacketsReceived += 1;
             this.totalDataReceived += extractLength(recvPacketData);
 
