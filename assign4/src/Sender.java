@@ -15,6 +15,10 @@ public class Sender {
     private static final double ALPHA = 0.125;
     private static final double BETA = 0.25;
 
+    // Variables for sliding window
+    private int baseSeqNumber = 0; // Sequence number of the oldest unacknowledged packet
+    private int nextSeqNumber = 0; // Sequence number of the next packet to send
+
     // Variables for timeout calculation
     private long estimatedRTT = 0;
     private long estimatedDeviation = 0;
@@ -52,7 +56,6 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
-    private Queue<swStruct> swQueue;
 
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
@@ -75,7 +78,6 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
-        this.swQueue = new LinkedList<>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -115,27 +117,41 @@ public class Sender {
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         this.senderThread = new Thread(() -> {
-            try {
+            try{ 
                 // Open the file for reading
                 FileInputStream fileInputStream = new FileInputStream(fileName);
                 int bytesRead;
+
 
                 // Buffer is of size mtu
                 while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
                     byte[] data = new byte[bytesRead];
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
 
-                    // Send data segment
-                    String flagList = "- A - D";
-                    int flagNum = (DATA | ACK);
+                    // Check if there is space in the sliding window
+                    if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+                        // Send data segment
+                        String flagList = "- A - D";
+                        int flagNum = (DATA | ACK);
 
-                    this.sendPacket(data, flagNum, flagList);
+                        this.sendPacket(data, flagNum, flagList);
+    
+                        // Move to the next sequence number
+                        this.nextSeqNumber += 1;
+                    } else {
+                        // Wait for acknowledgment or timeout
+                        try {
+                            lock.wait(timeoutDuration); // Adjust timeoutDuration based on your implementation
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
 
                 fileInputStream.close();
             } catch (IOException e) {
                 e.printStackTrace();
-            }
+            }  
         });
 
         this.receiverThread = new Thread(() -> {
@@ -236,28 +252,20 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            // Check if there is space in the sliding window
-            if (sentPackets.size() < this.sws) {
-                try {
-                    sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                    // Log the timer for retransmission
-                    Timer timer = new Timer(timeoutDuration);
-                    retransmissionTimers.put(sequenceNumber, timer);
+            try {
+                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+                // Log the timer for retransmission
+                Timer timer = new Timer(timeoutDuration);
+                retransmissionTimers.put(sequenceNumber, timer);
 
-                    // Store the sent packet in sentPackets for tracking
-                    sentPackets.put(sequenceNumber, dataPkt);
+                // Store the sent packet in sentPackets for tracking
+                sentPackets.put(sequenceNumber, dataPkt);
 
-                    // Book-keeping
-                    this.sequenceNumber += extractLength(dataHdr);
-                    this.totalDataTransferred += extractLength(dataHdr);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            else {  // No space in sliding window, create swStruct and add to queue
-                // Hold onto packet, current sequenceNumber, flag list
-                swStruct qPkt = new swStruct(dataPkt);
-                swQueue.add(qPkt);
+                // Book-keeping
+                this.sequenceNumber += extractLength(dataHdr);
+                this.totalDataTransferred += extractLength(dataHdr);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }
@@ -288,36 +296,16 @@ public class Sender {
                 }
                 // Resend the packet
                 try {
-                    // Check if there is space in the sliding window
-                    if (sentPackets.size() < this.sws) {
-                        sendUDPPacket(packet, flagList, seqNum);
-                        // Restart the timer
-                        Timer timer = retransmissionTimers.get(seqNum);
-                        if (timer != null) {
-                            timer.restart();
-                        }
-                        // Increment total retransmissions for statistics tracking
-                        totalRetransmissions++;
-                        // Increment the retransmission attempts counter for the current sequence number
-                        retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+                    sendUDPPacket(packet, flagList, seqNum);
+                    // Restart the timer
+                    Timer timer = retransmissionTimers.get(seqNum);
+                    if (timer != null) {
+                        timer.restart();
                     }
-                    else {  // No space in sliding window, create swStruct and add to queue
-                        // Hold onto packet, current sequenceNumber, flag list
-                        swStruct qPkt = new swStruct(packet);
-                        System.out.println(">>>Adding: " + extractSequenceNumber(qPkt.getPkt()));
-                        swQueue.add(qPkt);
-                    }
-
-                    // sendUDPPacket(packet, flagList, seqNum);
-                    // // Restart the timer
-                    // Timer timer = retransmissionTimers.get(seqNum);
-                    // if (timer != null) {
-                    //     timer.restart();
-                    // }
-                    // // Increment total retransmissions for statistics tracking
-                    // totalRetransmissions++;
-                    // // Increment the retransmission attempts counter for the current sequence number
-                    // retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+                    // Increment total retransmissions for statistics tracking
+                    totalRetransmissions++;
+                    // Increment the retransmission attempts counter for the current sequence number
+                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -438,11 +426,9 @@ public class Sender {
                 duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
 
-            // Adjust sliding window
-            if (sentPackets.size() < this.sws){
-                swStruct nextPkt = swQueue.poll();
-                System.out.println(Arrays.toString(nextPkt.getPkt()) + " // " + nextPkt.getFlagNum() + " // " +  nextPkt.getFlagList());
-                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            // Move baseSeqNumber to the next unacknowledged packet
+            while (this.baseSeqNumber < seqNum) {
+                this.baseSeqNumber += this.mtu;
             }
         }
     }
@@ -620,38 +606,38 @@ public class Sender {
     }
 
     // For adding packets to send queue
-    public class swStruct {
-        private byte[] pkt;
+    // public class swStruct {
+    //     private byte[] pkt;
 
-        public swStruct(byte[] pkt){
-            this.pkt = pkt;
-        }
+    //     public swStruct(byte[] pkt){
+    //         this.pkt = pkt;
+    //     }
 
-        public byte[] getPkt(){
-            return this.pkt;
-        }
+    //     public byte[] getPkt(){
+    //         return this.pkt;
+    //     }
 
-        public int getFlagNum(){
-            int flagNum = 0x000;
-            // Build flagNum
-            flagNum |= extractSYNFlag(this.pkt) ? 0x100 : 0x000;
-            flagNum |= extractACKFlag(this.pkt) ? 0x010 : 0x000;
-            flagNum |= extractFINFlag(this.pkt) ? 0x001 : 0x000;
+    //     public int getFlagNum(){
+    //         int flagNum = 0x000;
+    //         // Build flagNum
+    //         flagNum |= extractSYNFlag(this.pkt) ? 0x100 : 0x000;
+    //         flagNum |= extractACKFlag(this.pkt) ? 0x010 : 0x000;
+    //         flagNum |= extractFINFlag(this.pkt) ? 0x001 : 0x000;
 
-            return flagNum;
-        }
+    //         return flagNum;
+    //     }
 
-        public String getFlagList(){
-            String flagList = "";
-            // Build flagList
-            flagList += extractSYNFlag(this.pkt) ? "S " : "- ";
-            flagList += extractACKFlag(this.pkt) ? "A " : "- ";
-            flagList += extractFINFlag(this.pkt) ? "F " : "- ";
-            flagList += (extractLength(this.pkt) > 0) ? "D " : "- ";
+    //     public String getFlagList(){
+    //         String flagList = "";
+    //         // Build flagList
+    //         flagList += extractSYNFlag(this.pkt) ? "S " : "- ";
+    //         flagList += extractACKFlag(this.pkt) ? "A " : "- ";
+    //         flagList += extractFINFlag(this.pkt) ? "F " : "- ";
+    //         flagList += (extractLength(this.pkt) > 0) ? "D " : "- ";
 
-            return flagList;
-        }
-    }
+    //         return flagList;
+    //     }
+    // }
 
     // Inner class representing a timer
     public class Timer {
