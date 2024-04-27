@@ -163,6 +163,7 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
+                        System.out.println(">> " + entry.getKey() + " " + timer.isDead() + " " + timer.hasExpired());
                         if (!timer.isDead() && timer.hasExpired()) {
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
@@ -241,7 +242,6 @@ public class Sender {
             try {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                 if(this.sequenceNumber != 1) {
-                    System.out.println(">>>ADDING " + this.sequenceNumber + " TO RETRANS MAP");
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
                     retransmissionTimers.put(this.sequenceNumber, timer);
@@ -262,8 +262,6 @@ public class Sender {
     // Method to resend a packet given its sequence number
     private void resendPacket(int seqNum) {
         synchronized(lock){
-            System.out.println(">>>RESENDING: " + seqNum);
-
             byte[] packet = sentPackets.get(seqNum);
 
             String flagList = "";
@@ -389,7 +387,6 @@ public class Sender {
             while (unAckedIterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
-                    System.out.println(">>>REMOVING: " + entry.getKey());
                     unAckedIterator.remove(); // Safe removal using iterator
                 }
             }
