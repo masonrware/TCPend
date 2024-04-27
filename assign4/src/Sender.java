@@ -226,19 +226,20 @@ public class Sender {
     private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
-            byte[] dataHdr = createHeader(data.length, flagNum);
-
-            System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
-            System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
-
-            int checksum = getChecksum(dataPkt);
-
-            dataPkt[22] = (byte) (checksum & 0xFF);
-            dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             // Check if there is space in the sliding window
             if (sentPackets.size() < this.sws) {
                 try {
+                    byte[] dataHdr = createHeader(data.length, flagNum);
+
+                    System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
+                    System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
+
+                    int checksum = getChecksum(dataPkt);
+
+                    dataPkt[22] = (byte) (checksum & 0xFF);
+                    dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
+
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
@@ -304,6 +305,7 @@ public class Sender {
                     else {  // No space in sliding window, create swStruct and add to queue
                         // Hold onto packet, current sequenceNumber, flag list
                         swStruct qPkt = new swStruct(packet);
+                        System.out.println(">>>Adding: " + extractSequenceNumber(qPkt.getPkt()));
                         swQueue.add(qPkt);
                     }
 
