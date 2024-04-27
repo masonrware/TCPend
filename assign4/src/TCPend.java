@@ -44,7 +44,7 @@ public class TCPend {
             // Listen
         }
         else {                          // Invalid number of args
-            System.out.println("Usage for sender: java TCPend -p <port> -s <remote IP> -a <remote port> f <file name> -m <mtu> -c <sws>");
+            System.out.println("Usage for sender: java TCPend -p <port> -s <remote IP> -a <remote port> -f <file name> -m <mtu> -c <sws>");
             System.out.println("Usage for receiver: java TCPend -p <port> -m <mtu> -c <sws> -f <file name>");
             return;
         }
