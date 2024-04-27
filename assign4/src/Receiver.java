@@ -178,8 +178,6 @@ public class Receiver {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
-            System.out.println("[recv]: " + Arrays.toString(recvPacketData));
-
             this.totalPacketsReceived += 1;
             this.totalDataReceived += extractLength(recvPacketData);
 
@@ -241,7 +239,6 @@ public class Receiver {
                         this.outputStream.write(payload);
                     }
                     catch (IOException e){
-                        System.out.println("WRITING BACK TO FILE FAILED");
                         e.printStackTrace();
                     }
 
@@ -421,7 +418,6 @@ public class Receiver {
 
     private byte[] extractPayload(byte[] packet){
         int dataLen = extractLength(packet);
-        System.out.println("extractPayload: data length is " + dataLen);
         byte[] data = new byte[dataLen];
         System.arraycopy(packet, 24, data, 0, dataLen);
 
