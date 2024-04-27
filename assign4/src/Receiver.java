@@ -150,7 +150,6 @@ public class Receiver {
             byte[] dataPkt = new byte[HEADER_SIZE];
 
             byte[] hdr = createHeader(0, flagNum, timeStamp);
-            // System.out.println(hdr);
 
             System.arraycopy(hdr, 0, dataPkt, 0, HEADER_SIZE);
 
@@ -194,7 +193,6 @@ public class Receiver {
                 this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Update ack num
-                // this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
                 this.ackNumber += 1;
                 
                 // Respond with a SYN-ACK
@@ -209,7 +207,6 @@ public class Receiver {
                 this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Update ack num
-                // this.ackNumber = this.extractSequenceNumber(recvPacketData) + 1;
                 this.ackNumber += 1;
                 
                 // Respond with a FIN-ACK

@@ -54,8 +54,6 @@ public class Sender {
     private byte[] buffer;
     private Queue<swStruct> swQueue;
 
-    private int firstUnackedSequenceNum = 0;
-
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
 
@@ -233,9 +231,6 @@ public class Sender {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(data.length, flagNum);
 
-            System.out.println("PRINTING HEADER");
-            printHeader(dataHdr);
-
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
 
@@ -370,9 +365,6 @@ public class Sender {
                 // Handle unacked packet
                 handleAcknowledgment(extractAcknowledgmentNumber(recvPacketData), extractTimestamp(recvPacketData));
 
-                // TODO: what do we have to do for an ack?
-                // 3. check if we are finished
-
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
                     flagList = "- - F -";
@@ -397,6 +389,7 @@ public class Sender {
                 }
             }
 
+            // Cancel the retransmission timer associated with the acknowledged packet
             Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
             while (retransTimerIterator.hasNext()) {
                 Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
@@ -404,13 +397,6 @@ public class Sender {
                     retransTimerIterator.remove(); // Safe removal using iterator
                 }
             }
-
-            // Cancel the retransmission timer associated with the acknowledged packet
-            // retransmissionTimers.remove(seqNum);
-
-
-            // Calculate the timeout duration based on the acknowledgment timestamp
-            // calculateTimeoutDuration(ackTimestamp);
 
             // Check if this is a duplicate ack
             int duplicateAcks = duplicateAcksCount.getOrDefault(seqNum, 0);
@@ -421,18 +407,11 @@ public class Sender {
                 duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
 
-            // TODO sliding window adjustment
+            // Adjust sliding window
             if (swQueue.size() > 0){
-                System.out.println("Space available in sliding window, sending packet from queue");
                 swStruct nextPkt = swQueue.poll();
                 sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             }
-            
-
-            // Adjust sliding window
-            // Perform necessary actions based on the sliding window
-            // (e.g., slide the window, send more packets if window allows, etc.)
-            // Example: slideWindow(newWindow);
         }
     }
 
