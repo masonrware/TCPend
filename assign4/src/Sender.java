@@ -52,6 +52,7 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    private Queue<swStruct> swQueue;
 
     private int firstUnackedSequenceNum = 0;
 
@@ -67,6 +68,9 @@ public class Sender {
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
 
+    // Map to store the mapping between acknowledgment numbers and sequence numbers
+    private Map<Integer, Integer> ackToSeqMap = new HashMap<>();
+
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
         this.remoteIP = remIP;
@@ -76,6 +80,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
+        this.swQueue = new LinkedList<>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -236,23 +241,30 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            try {
-                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                if(this.sequenceNumber != 1) {
-                    // Log the timer for retransmission
-                    Timer timer = new Timer(timeoutDuration);
-                    retransmissionTimers.put(this.sequenceNumber, timer);
+            if (sentPackets.size() < this.sws) {
+                try {
+                    sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+                    if(this.sequenceNumber != 1) {
+                        // Log the timer for retransmission
+                        Timer timer = new Timer(timeoutDuration);
+                        retransmissionTimers.put(this.sequenceNumber, timer);
+                    }
+
+                    // Store the sent packet in sentPackets for tracking
+                    sentPackets.put(this.sequenceNumber, dataPkt);
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
 
-                // Store the sent packet in sentPackets for tracking
-                sentPackets.put(this.sequenceNumber, dataPkt);
-            } catch (IOException e) {
-                e.printStackTrace();
+                // Book-keeping
+                this.sequenceNumber += extractLength(dataHdr);
+                this.totalDataTransferred += extractLength(dataHdr);
             }
-
-            // Book-keeping
-            this.sequenceNumber += extractLength(dataHdr);
-            this.totalDataTransferred += extractLength(dataHdr);
+            else {  // No space in sliding window, create swStruct and add to queue
+                System.out.println("No room to send in sliding window, adding to buffer");
+                swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
+                swQueue.add(qPkt);
+            }
         }
     }
 
@@ -414,10 +426,11 @@ public class Sender {
 
             // TODO sliding window adjustment
 
-            // Adjust sliding window
-            // Perform necessary actions based on the sliding window
-            // (e.g., slide the window, send more packets if window allows, etc.)
-            // Example: slideWindow(newWindow);
+            if (swQueue.size() > 0){
+                System.out.println("Space available in sliding window, sending packet from queue");
+                swStruct nextPkt = swQueue.poll();
+                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            }
         }
     }
 
