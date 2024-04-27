@@ -344,6 +344,9 @@ public class Sender {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
+
+            System.out.println(Arrays.toString(recvPacketData));
+
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
 
@@ -385,6 +388,7 @@ public class Sender {
                 System.exit(1);
             } else { // Handle regular ACK
                 flagList = "- A - -";
+                System.out.println(">>391");
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
@@ -438,6 +442,7 @@ public class Sender {
 
             // Adjust sliding window
             if (swQueue.size() > 0){
+                System.out.println(">>445");
                 swStruct nextPkt = swQueue.poll();
                 sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             }
