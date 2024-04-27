@@ -163,9 +163,7 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
-                        System.out.println("<<<THREAD SEES: " + entry.getKey() + " EXPIRED?: " + timer.hasExpired() + " DEAD? " + timer.isDead());
                         if (!timer.isDead() && timer.hasExpired()) {
-                            System.out.println("<<<THREAD IS RETRANSMITTING: " + entry.getKey());
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
                             // Restart the timer
@@ -265,10 +263,6 @@ public class Sender {
     private void resendPacket(int seqNum) {
         synchronized(lock){
             System.out.println(">>>RESENDING: " + seqNum);
-            System.out.println(">>>RETRANSMISSION TIMERS MAP: ");
-            for(Map.Entry<Integer, Timer> entry: retransmissionTimers.entrySet()) {
-                System.out.println(entry.getKey());
-            }
 
             byte[] packet = sentPackets.get(seqNum);
 
@@ -400,19 +394,13 @@ public class Sender {
                 }
             }
             
-            Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
-            while (retransTimerIterator.hasNext()) {
-                Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
-                if (entry.getKey() < seqNum) {
-                    retransTimerIterator.remove(); // Safe removal using iterator
-                }
+            for(Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
+                Timer timer = entry.getValue();
+                timer.markDead();
             }
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            retransmissionTimers.remove(seqNum);
-            // if (timer != null) {
-            //     timer.cancel();
-            // }
+            // retransmissionTimers.remove(seqNum);
 
             // Calculate the timeout duration based on the acknowledgment timestamp
             // calculateTimeoutDuration(ackTimestamp);
