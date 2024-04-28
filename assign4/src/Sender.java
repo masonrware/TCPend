@@ -461,7 +461,8 @@ public class Sender {
 
 
             // Calculate the timeout duration based on the acknowledgment timestamp
-            // calculateTimeoutDuration(ackTimestamp);
+            boolean firstAck = (seqNum == 1+mtu-HEADER_SIZE);
+            calculateTimeoutDuration(ackTimestamp, firstAck);
 
             // Check if this is a duplicate ack
             int duplicateAcks = duplicateAcksCount.getOrDefault(seqNum, 0);
@@ -516,11 +517,11 @@ public class Sender {
     }
 
     // Method to calculate timeout duration based on provided pseudo code
-    private void calculateTimeoutDuration(long ackTimestamp) {
+    private void calculateTimeoutDuration(long ackTimestamp, boolean firstAck) {
         synchronized (lock) {
             long currentTime = System.nanoTime() / 1000000; // Convert nanoseconds to milliseconds
 
-            if (ackTimestamp == 0) {
+            if (firstAck) {
                 // First acknowledgment received
                 estimatedRTT = currentTime - ackTimestamp;
                 estimatedDeviation = 0;
