@@ -128,25 +128,10 @@ public class Sender {
                         byte[] data = new byte[bytesRead];
                         System.arraycopy(buffer, 0, data, 0, bytesRead);
 
-                        // Check if there is space in the sliding window
-                        // if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
-                            // Send data segment
-                            String flagList = "- A - D";
-                            int flagNum = (DATA | ACK);
+                        String flagList = "- A - D";
+                        int flagNum = (DATA | ACK);
 
-                            this.sendPacket(data, flagNum, flagList);
-        
-                            // Move to the next sequence number
-                            // this.nextSeqNumber += 1;
-                        // } 
-                        // else {
-                        //     // Wait for acknowledgment or timeout
-                        //     try {
-                        //         lock.wait(timeoutDuration);
-                        //     } catch (InterruptedException e) {
-                        //         e.printStackTrace();
-                        //     }
-                        // }
+                        this.sendPacket(data, flagNum, flagList);
                     }
 
                     fileInputStream.close();
@@ -269,8 +254,6 @@ public class Sender {
                     this.totalDataTransferred += extractLength(dataHdr);
 
                     // Move to the next sequence number
-                    // this.nextSeqNumber += 1;
-                // }
                     this.nextSeqNumber += 1;
                 } 
                 // Book-keeping
@@ -308,16 +291,22 @@ public class Sender {
                 }
                 // Resend the packet
                 try {
-                    sendUDPPacket(packet, flagList, seqNum);
-                    // Restart the timer
-                    Timer timer = retransmissionTimers.get(seqNum);
-                    if (timer != null) {
-                        timer.restart();
+                    if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+
+                        sendUDPPacket(packet, flagList, seqNum);
+                        // Restart the timer
+                        Timer timer = retransmissionTimers.get(seqNum);
+                        if (timer != null) {
+                            timer.restart();
+                        }
+                        // Increment total retransmissions for statistics tracking
+                        totalRetransmissions++;
+                        // Increment the retransmission attempts counter for the current sequence number
+                        retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+
+                        // Move to the next sequence number
+                        this.nextSeqNumber += 1;
                     }
-                    // Increment total retransmissions for statistics tracking
-                    totalRetransmissions++;
-                    // Increment the retransmission attempts counter for the current sequence number
-                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
