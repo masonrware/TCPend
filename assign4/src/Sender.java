@@ -223,36 +223,48 @@ public class Sender {
      * SENDERS
      */
 
-    private void sendPacket(byte[] data, int flagNum, String flagList) {
+     private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
+            // Check if the sliding window is full
+            while (sentPackets.size() >= sws) {
+                try {
+                    lock.wait(); // Wait until there is space in the window
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+    
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(data.length, flagNum);
-
+    
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
-
+    
             int checksum = getChecksum(dataPkt);
-
+    
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
-
+    
             try {
                 sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                if(this.sequenceNumber != 1) {
+                if (this.sequenceNumber != 1) {
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
                     retransmissionTimers.put(this.sequenceNumber, timer);
                 }
-
+    
                 // Store the sent packet in sentPackets for tracking
                 sentPackets.put(this.sequenceNumber, dataPkt);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
+    
             // Book-keeping
             this.sequenceNumber += extractLength(dataHdr);
             this.totalDataTransferred += extractLength(dataHdr);
+    
+            // Notify waiting threads that there is space in the window
+            lock.notifyAll();
         }
     }
 
