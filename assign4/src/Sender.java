@@ -4,7 +4,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Sender {
-    private final Object lock = new Object(); // Object for locking shared resources
+    private final Object lock = new Object();
+    private final Object qlock = new Object();
+    
     private Thread senderThread;
     private Thread receiverThread;
     private Thread timeoutThread;
@@ -259,8 +261,10 @@ public class Sender {
                     e.printStackTrace();
                 }
             } else {
-                // Enqueue the packet (with old timestamp)
-                this.queuedPacekts.add(dataPkt);
+                synchronized(qlock) {
+                    // Enqueue the packet (with old timestamp)
+                    this.queuedPacekts.add(dataPkt);
+                }
             }
 
             // Book-keeping
@@ -404,34 +408,36 @@ public class Sender {
                 if (entry.getKey() < seqNum) {
                     unAckedIterator.remove(); // Safe removal using iterator
 
-                    // Dequeue and send a packet
-                    byte[] nextPacketUp = this.queuedPacekts.poll();
-                    if(nextPacketUp != null) {
-                        String flagList = "";
-                        // Build flagList
-                        flagList += extractSYNFlag(nextPacketUp) ? "S " : "- ";
-                        flagList += extractACKFlag(nextPacketUp) ? "A " : "- ";
-                        flagList += extractFINFlag(nextPacketUp) ? "F " : "- ";
-                        flagList += (extractLength(nextPacketUp) > 0) ? "D " : "- ";
-                        
-                        try {
-                            // Update the timestamp
-                            modifyTimestamp(nextPacketUp);
+                    synchronized(qlock){
+                        // Dequeue and send a packet
+                        byte[] nextPacketUp = this.queuedPacekts.poll();
+                        if(nextPacketUp != null) {
+                            String flagList = "";
+                            // Build flagList
+                            flagList += extractSYNFlag(nextPacketUp) ? "S " : "- ";
+                            flagList += extractACKFlag(nextPacketUp) ? "A " : "- ";
+                            flagList += extractFINFlag(nextPacketUp) ? "F " : "- ";
+                            flagList += (extractLength(nextPacketUp) > 0) ? "D " : "- ";
+                            
+                            try {
+                                // Update the timestamp
+                                modifyTimestamp(nextPacketUp);
 
-                            sendUDPPacket(nextPacketUp, flagList, extractSequenceNumber(nextPacketUp));
+                                sendUDPPacket(nextPacketUp, flagList, extractSequenceNumber(nextPacketUp));
 
-                            // Log the timer for retransmission
-                            Timer timer = new Timer(timeoutDuration);
-                            retransmissionTimers.put(this.sequenceNumber, timer);
+                                // Log the timer for retransmission
+                                Timer timer = new Timer(timeoutDuration);
+                                retransmissionTimers.put(this.sequenceNumber, timer);
 
-                            // Store the sent packet in sentPackets for tracking
-                            sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
+                                // Store the sent packet in sentPackets for tracking
+                                sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
 
-                            // Book-Keeping
-                            this.totalDataTransferred += extractLength(nextPacketUp);
-                            this.sequenceNumber += extractLength(nextPacketUp);                            
-                        } catch (IOException e) {
-                            e.printStackTrace();
+                                // Book-Keeping
+                                this.totalDataTransferred += extractLength(nextPacketUp);
+                                this.sequenceNumber += extractLength(nextPacketUp);                            
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 }
