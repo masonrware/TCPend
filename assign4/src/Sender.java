@@ -232,6 +232,9 @@ public class Sender {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(data.length, flagNum);
 
+            System.out.println(">>SIZES OF NEW PACKETS: " + HEADER_SIZE + " " + data.length);
+            System.out.println(">>HEADER OF NEW PACKET: " + Arrays.toString(dataHdr));
+
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
 
@@ -260,8 +263,7 @@ public class Sender {
                 this.totalDataTransferred += extractLength(dataHdr);
             }
             else {  // No space in sliding window, create swStruct and add to queue
-                System.out.println("No room to send in sliding window, adding to buffer");
-                System.out.println(this.sequenceNumber + ": " + Arrays.toString(dataPkt));
+                System.out.println(">>ADDING PACKET TO QUEUE: " + this.sequenceNumber + ": " + Arrays.toString(dataPkt));
                 swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
                 swQueue.add(qPkt);
                 this.sequenceNumber += extractLength(dataHdr);
