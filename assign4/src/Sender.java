@@ -78,7 +78,7 @@ public class Sender {
         this.mtu = m;
         this.sws = s;
         // Leave space for the header
-        this.buffer = new byte[mtu - HEADER_SIZE];
+        this.buffer = new byte[mtu];
         this.swQueue = new LinkedList<swStruct>();
 
         try {
@@ -206,8 +206,6 @@ public class Sender {
                 DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(synackPacket); // blocking!
 
-
-                System.out.println(Arrays.toString(synackPacket.getData()));
                 // Process SYN-ACK packet
                 if (extractSYNFlag(synackPacket.getData()) && extractACKFlag(synackPacket.getData())) {
                     // Make sure the ack number is correct (syn+1)
