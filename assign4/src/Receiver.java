@@ -395,7 +395,6 @@ public class Receiver {
     private byte[] extractPayload(byte[] packet){
         int dataLen = extractLength(packet);
         System.out.println("[extractPayload]: data length is " + dataLen);
-        printPacket(packet);
         byte[] data = new byte[dataLen];
         System.arraycopy(packet, 24, data, 0, dataLen);
 
