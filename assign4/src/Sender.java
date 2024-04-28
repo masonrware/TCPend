@@ -281,7 +281,7 @@ public class Sender {
             for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
                 System.out.println(entry.getKey() + ": " + Arrays.toString(entry.getValue()));
             }
-            
+
             byte[] packet = sentPackets.get(seqNum);
 
             String flagList = "";
@@ -441,7 +441,7 @@ public class Sender {
 
                             // Log the timer for retransmission
                             Timer timer = new Timer(timeoutDuration);
-                            retransmissionTimers.put(this.sequenceNumber, timer);
+                            retransmissionTimers.put(extractSequenceNumber(nextPacketUp), timer);
 
                             // Store the sent packet in sentPackets for tracking
                             sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
