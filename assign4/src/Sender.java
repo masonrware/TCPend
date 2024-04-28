@@ -168,6 +168,7 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
+                        System.out.println(">> TIMER THREAD SEES: " + entry.getKey() + " timer dead? " + timer.isDead() + " time expired? " + timer.hasExpired());
                         if (!timer.isDead() && timer.hasExpired()) {
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
@@ -275,6 +276,15 @@ public class Sender {
     // Method to resend a packet given its sequence number
     private void resendPacket(int seqNum) {
         synchronized(lock){
+            System.out.println(">>SENT PACKETS: ");
+            for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
+                System.out.println(entry.getKey() + ": " + Arrays.toString(entry.getValue()));
+            }
+            System.out.println(">>RETRANS TIMERS: ");
+            for(Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
+                System.out.println(entry.getKey());
+            }
+
             byte[] packet = sentPackets.get(seqNum);
 
             String flagList = "";
