@@ -142,8 +142,10 @@ public class Sender {
             try {
                 // Receive forever (until we are done sending)
                 while (true) {
+                    byte[] tmpBuf = new byte[mtu];
+
                     // Wait for any inbound packet type
-                    DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
+                    DatagramPacket inboundPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
                     socket.receive(inboundPacket); // blocking!
 
                     // TODO: handle checksum!!!
