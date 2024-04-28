@@ -138,7 +138,6 @@ public class Receiver {
             byte[] dataPkt = new byte[HEADER_SIZE];
 
             byte[] hdr = createHeader(0, flagNum, timeStamp);
-            // System.out.println(hdr);
 
             System.arraycopy(hdr, 0, dataPkt, 0, HEADER_SIZE);
 
