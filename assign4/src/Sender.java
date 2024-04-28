@@ -448,7 +448,7 @@ public class Sender {
 
                             // Book-Keeping
                             this.totalDataTransferred += extractLength(nextPacketUp);
-                            this.sequenceNumber += extractLength(nextPacketUp);                            
+                            // this.sequenceNumber += extractLength(nextPacketUp);                            
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
