@@ -404,7 +404,20 @@ public class Sender {
                     System.out.println("Space available in sliding window, sending packet from queue");
                     swStruct nextPkt = swQueue.poll();
                     if(nextPkt!=null) {
-                        sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                        try {
+                            // sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                            sendUDPPacket(nextPkt.getPkt(), nextPkt.getFlagList(), extractSequenceNumber(nextPkt.getPkt()));
+                            if(this.sequenceNumber != 1) {
+                                // Log the timer for retransmission
+                                Timer timer = new Timer(timeoutDuration);
+                                retransmissionTimers.put(this.sequenceNumber, timer);
+                            }
+
+                            // Store the sent packet in sentPackets for tracking
+                            sentPackets.put(this.sequenceNumber, nextPkt.getPkt());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
