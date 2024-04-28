@@ -240,7 +240,7 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            if (sentPackets.size() <= this.sws) {
+            if (sentPackets.size() < this.sws) {
                 try {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     if(this.sequenceNumber != 1) {
