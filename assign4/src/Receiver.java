@@ -5,6 +5,7 @@ import java.util.*;
 
 public class Receiver {
     private final Object lock = new Object(); // Object for locking shared resources
+    // private Timer synAckTimer;
 
     private static final int HEADER_SIZE = 24;
 
@@ -36,9 +37,6 @@ public class Receiver {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
-    private FileOutputStream outputStream;
-
-    private Map<Integer, byte[]> swMap = new HashMap<>();
 
     public Receiver(int p, int m, int s, String fname) {
         this.port = p;
@@ -49,8 +47,7 @@ public class Receiver {
 
         try {
             this.socket = new DatagramSocket(port);
-            this.outputStream = new FileOutputStream(fname);
-        } catch (Exception e) {
+        } catch (SocketException e) {
             e.printStackTrace();
         }
     }
@@ -232,37 +229,7 @@ public class Receiver {
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
-                    byte[] payload = extractPayload(recvPacketData);
-
-                    try {
-                        this.outputStream.write(payload);
-                    }
-                    catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
                     this.ackNumber += this.extractLength(recvPacketData);
-
-                    byte[] data = swMap.get(this.ackNumber);
-                    while (data != null){
-                        System.out.println("WHILE LOOP 248");
-                        try {
-                            System.out.println("Writing data to " + this.fileName);
-                            this.outputStream.write(data);
-                        }
-                        catch (IOException e){
-                            System.out.println("WRITING BACK TO FILE FAILED");
-                            e.printStackTrace();
-                        }
-                        this.ackNumber += extractLength(data);
-                        data = swMap.get(this.ackNumber);
-                    }
-                }
-                else {  // Data out of order
-                    if (swMap.size() < this.sws){   // There is space to stash data
-                        System.out.println("No room in sliding window, store in buffer");
-                        swMap.put(recvSeqNum, recvPacketData);
-                    }
                 }
 
                 // Respond with ACK
@@ -366,45 +333,6 @@ public class Receiver {
 
         // Flip all 16 bits to get the checksum
         return ~sum & 0xFFFF;
-    }
-
-    public void printHeader(byte[] byteArray) {
-        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
-        for (int i = 0; i < limit; i += 4) {
-            StringBuilder chunk = new StringBuilder();
-            for (int j = 0; j < 4 && i + j < limit; j++) {
-                // Convert byte to binary string and append to chunk
-                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
-            }
-            System.out.println(chunk);
-        }
-    }
-
-    public void printPacket(byte[] byteArray) {
-        for (int i = 0; i < byteArray.length; i += 4) {
-            StringBuilder chunk = new StringBuilder();
-            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
-                // Convert byte to binary string and append to chunk
-                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
-            }
-            System.out.println(chunk);
-        }
-    }
-
-    public void printLen(int number) {
-        // Use Integer.toBinaryString to get the binary representation
-        String binary = Integer.toBinaryString(number);
-        System.out.println(binary);
-    }
-
-    private byte[] extractPayload(byte[] packet){
-        int dataLen = extractLength(packet);
-        System.out.println("[extractPayload]: data length is " + dataLen);
-        printPacket(packet);
-        byte[] data = new byte[dataLen];
-        System.arraycopy(packet, 24, data, 0, dataLen);
-
-        return data;
     }
 
     private int extractSequenceNumber(byte[] header) {
