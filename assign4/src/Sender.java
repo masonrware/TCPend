@@ -399,25 +399,7 @@ public class Sender {
             while (unAckedIterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
-                    System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
-                    System.out.println("Space available in sliding window, sending packet from queue");
-                    swStruct nextPkt = swQueue.poll();
-                    if(nextPkt!=null) {
-                        try {
-                            // sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
-                            sendUDPPacket(nextPkt.getPkt(), nextPkt.getFlagList(), extractSequenceNumber(nextPkt.getPkt()));
-                            
-                            // Log the timer for retransmission
-                            Timer timer = new Timer(timeoutDuration);
-                            retransmissionTimers.put(extractSequenceNumber(nextPkt.getPkt()), timer);
-
-                            // Store the sent packet in sentPackets for tracking
-                            sentPackets.put(extractSequenceNumber(nextPkt.getPkt()), nextPkt.getPkt());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
                 }
             }
 
@@ -426,6 +408,7 @@ public class Sender {
                 Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
                 if (entry.getKey() < seqNum) {
                     retransTimerIterator.remove(); // Safe removal using iterator
+                    clearQueue();
                 }
             }
 
@@ -452,6 +435,25 @@ public class Sender {
             //     swStruct nextPkt = swQueue.poll();
             //     sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             // }
+        }
+    }
+
+    private void clearQueue() {
+        swStruct nextPkt = swQueue.poll();
+        if(nextPkt!=null) {
+            try {
+                // sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                sendUDPPacket(nextPkt.getPkt(), nextPkt.getFlagList(), extractSequenceNumber(nextPkt.getPkt()));
+                
+                // Log the timer for retransmission
+                Timer timer = new Timer(timeoutDuration);
+                retransmissionTimers.put(extractSequenceNumber(nextPkt.getPkt()), timer);
+
+                // Store the sent packet in sentPackets for tracking
+                sentPackets.put(extractSequenceNumber(nextPkt.getPkt()), nextPkt.getPkt());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
