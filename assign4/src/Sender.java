@@ -197,8 +197,10 @@ public class Sender {
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
 
+                byte[] tmpBuf = new byte[mtu];
+
                 // Wait for SYN-ACK from receiver
-                DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+                DatagramPacket synackPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
                 socket.receive(synackPacket); // blocking!
 
                 // Process SYN-ACK packet
