@@ -18,16 +18,10 @@ public class Receiver {
     private int totalDataReceived = 0;
     private int totalPacketsSent = 0;
     private int totalPacketsReceived = 0;
-    private int totalRetransmissions = 0;
     private int totalOutOfSequencePackets = 0;
-    private int totalPacketsWithIncorrectChecksum = 0;
-    private int totalDuplicateAcks = 0;
 
     private int sequenceNumber = 0;
     private int ackNumber = 0;
-
-    private int lastSeqNumber = 0;
-    private int lastSize = 0;
 
     private int port;
     private int mtu;
@@ -130,7 +124,6 @@ public class Receiver {
             // Only increment sequence number and total packet count if handshake succeeds
             synchronized(lock) {
                 this.sequenceNumber += 1;
-                this.totalPacketsSent += 2;
             }   
             return true;
         } catch (IOException e) {
@@ -167,6 +160,10 @@ public class Receiver {
         // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
+
+        // Book-Keeping
+        this.totalPacketsSent += 1;
+        this.totalDataTransferred += extractLength(data);
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
@@ -230,6 +227,8 @@ public class Receiver {
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
                     this.ackNumber += this.extractLength(recvPacketData);
+                } else {
+                    totalOutOfSequencePackets++;
                 }
 
                 // Respond with ACK
@@ -256,9 +255,6 @@ public class Receiver {
         System.out.println("Total Packets Sent: \t\t\t\t" + totalPacketsSent + " packets");
         System.out.println("Total Packets Received: \t\t\t" + totalPacketsReceived + " packets");
         System.out.println("Total Out-of-Sequence Packets: \t\t\t" + totalOutOfSequencePackets + " packets");
-        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
-        System.out.println("Total Number of Retransmissions: \t\t" + totalRetransmissions + " retransmits");
-        System.out.println("Total Duplicate Acknowledgements: \t\t" + totalDuplicateAcks + " ACKs");
     }
 
     // Method to output segment information
