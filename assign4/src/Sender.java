@@ -400,6 +400,7 @@ public class Sender {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
                     unAckedIterator.remove(); // Safe removal using iterator
+                    clearQueue();
                 }
             }
 
@@ -408,7 +409,6 @@ public class Sender {
                 Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
                 if (entry.getKey() < seqNum) {
                     retransTimerIterator.remove(); // Safe removal using iterator
-                    clearQueue();
                 }
             }
 
