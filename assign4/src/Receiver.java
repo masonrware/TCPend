@@ -245,10 +245,9 @@ public class Receiver {
 
                     byte[] data = swMap.get(this.ackNumber);
                     while (data != null){
-                        System.out.println("WHILE LOOP 248");
                         try {
                             System.out.println("Writing data to " + this.fileName);
-                            this.outputStream.write(data);
+                            this.outputStream.write(extractPayload(data));
                         }
                         catch (IOException e){
                             System.out.println("WRITING BACK TO FILE FAILED");
@@ -399,8 +398,6 @@ public class Receiver {
 
     private byte[] extractPayload(byte[] packet){
         int dataLen = extractLength(packet);
-        System.out.println("[extractPayload]: data length is " + dataLen);
-        printPacket(packet);
         byte[] data = new byte[dataLen];
         System.arraycopy(packet, 24, data, 0, dataLen);
 
