@@ -202,8 +202,6 @@ public class Sender {
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
 
-                // byte[] tmpBuf = new byte[mtu];
-
                 // Wait for SYN-ACK from receiver
                 DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(synackPacket); // blocking!
@@ -243,7 +241,7 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            if (sentPackets.size() < this.sws) {
+            if (sentPackets.size() <= this.sws) {
                 try {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     if(this.sequenceNumber != 1) {
@@ -404,10 +402,10 @@ public class Sender {
                 if (entry.getKey() < seqNum) {
                     System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
-                    // Send a packet from the queue
+                    System.out.println("Space available in sliding window, sending packet from queue");
                     swStruct nextPkt = swQueue.poll();
-                    if (nextPkt != null) {
-                        this.sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                    if(nextPkt!=null) {
+                        sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
                     }
                 }
             }
@@ -420,6 +418,10 @@ public class Sender {
                 }
             }
 
+            // Cancel the retransmission timer associated with the acknowledged packet
+            // retransmissionTimers.remove(seqNum);
+
+
             // Calculate the timeout duration based on the acknowledgment timestamp
             // calculateTimeoutDuration(ackTimestamp);
 
@@ -431,6 +433,14 @@ public class Sender {
                 resendPacket(seqNum);
                 duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
+
+            // TODO sliding window adjustment
+
+            // if (swQueue.size() > 0){
+            //     System.out.println("Space available in sliding window, sending packet from queue");
+            //     swStruct nextPkt = swQueue.poll();
+            //     sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            // }
         }
     }
 
