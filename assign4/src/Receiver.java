@@ -380,6 +380,17 @@ public class Receiver {
         }
     }
 
+    public void printPacket(byte[] byteArray) {
+        for (int i = 0; i < byteArray.length; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
+    }
+
     public void printLen(int number) {
         // Use Integer.toBinaryString to get the binary representation
         String binary = Integer.toBinaryString(number);
@@ -389,7 +400,7 @@ public class Receiver {
     private byte[] extractPayload(byte[] packet){
         int dataLen = extractLength(packet);
         System.out.println("[extractPayload]: data length is " + dataLen);
-        printHeader(packet);
+        printPacket(packet);
         byte[] data = new byte[dataLen];
         System.arraycopy(packet, 24, data, 0, dataLen);
 
