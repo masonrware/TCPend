@@ -31,6 +31,12 @@ public class Receiver {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    private FileOutputStream outputStream;
+
+    private Map<Integer, byte[]> swMap = new HashMap<>();
+    private FileOutputStream outputStream;
+
+    private Map<Integer, byte[]> swMap = new HashMap<>();
 
     public Receiver(int p, int m, int s, String fname) {
         this.port = p;
@@ -133,6 +139,8 @@ public class Receiver {
     }
 
     
+
+    
     private void sendPacket(int flagNum, String flagList, long timeStamp) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE];
@@ -225,18 +233,60 @@ public class Receiver {
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
+                    // Check if in the buffer 
+                        // If it is, flush and remove it
+                        // Else, write straight to file
+                    byte[] payload = extractPayload(recvPacketData);
+
+                    try {
+                        this.outputStream.write(payload);
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
                     this.ackNumber += this.extractLength(recvPacketData);
+
+                    byte[] data = swMap.get(this.ackNumber);
+                    while (data != null){
+                        try {
+                            System.out.println("Writing data to " + this.fileName);
+                            this.outputStream.write(extractPayload(data));
+                        }
+                        catch (IOException e){
+                            System.out.println("WRITING BACK TO FILE FAILED");
+                            e.printStackTrace();
+                        }
+                        this.ackNumber += extractLength(data);
+                        data = swMap.get(this.ackNumber);
+                    }
+                }
+                else {  // Data out of order
+                    if (swMap.size() < this.sws){   // There is space to stash data
+                        System.out.println("No room in sliding window, store in buffer");
+                        swMap.put(recvSeqNum, recvPacketData);
+                    }
                 } else {
                     totalOutOfSequencePackets++;
                 }
 
+                // Put this in the case where it
                 // Respond with ACK
                 flagList = "- A - -";
                 flagNum = ACK;
 
                 this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
             }
+
+            this.lastSeqNumber = extractSequenceNumber(recvPacketData);
+            this.lastSize = extractLength(recvPacketData);
         }
+        
+        /*
+         * 
+         * 
+         * 
+         */
     }
 
     /*
@@ -327,6 +377,43 @@ public class Receiver {
         return ~sum & 0xFFFF;
     }
 
+    public void printHeader(byte[] byteArray) {
+        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
+        for (int i = 0; i < limit; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < limit; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
+    }
+
+    public void printPacket(byte[] byteArray) {
+        for (int i = 0; i < byteArray.length; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
+    }
+
+    public void printLen(int number) {
+        // Use Integer.toBinaryString to get the binary representation
+        String binary = Integer.toBinaryString(number);
+        System.out.println(binary);
+    }
+
+    private byte[] extractPayload(byte[] packet){
+        int dataLen = extractLength(packet);
+        byte[] data = new byte[dataLen];
+        System.arraycopy(packet, 24, data, 0, dataLen);
+
+        return data;
+    }
+
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
                (header[1] & 0xFF) << 16 |
@@ -356,6 +443,7 @@ public class Receiver {
         return (header[16] & 0xFF) << 21 |
                (header[17] & 0xFF) << 13 |
                (header[18] & 0xFF) << 5 |
+               ((header[19] >> 3) & 0x1F);
                ((header[19] >> 3) & 0x1F);
     }
 
