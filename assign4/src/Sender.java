@@ -119,29 +119,27 @@ public class Sender {
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         this.senderThread = new Thread(() -> {
-            // while(true) {
-                try{ 
-                    // Open the file for reading
-                    FileInputStream fileInputStream = new FileInputStream(fileName);
-                    int bytesRead;
+            try{ 
+                // Open the file for reading
+                FileInputStream fileInputStream = new FileInputStream(fileName);
+                int bytesRead;
 
-                    // Buffer is of size mtu
-                    while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
-                        byte[] data = new byte[bytesRead];
-                        System.arraycopy(buffer, 0, data, 0, bytesRead);
+                // Buffer is of size mtu
+                while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
+                    byte[] data = new byte[bytesRead];
+                    System.arraycopy(buffer, 0, data, 0, bytesRead);
 
-                        String flagList = "- A - D";
-                        int flagNum = (DATA | ACK);
+                    String flagList = "- A - D";
+                    int flagNum = (DATA | ACK);
 
-                        System.out.println("PRINTING PACKET: 136");
-                        this.sendPacket(data, flagNum, flagList);
-                    }
-
-                    fileInputStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    System.out.println("PRINTING PACKET: 136");
+                    this.sendPacket(data, flagNum, flagList);
                 }
-            // }  
+
+                fileInputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         });
 
         this.receiverThread = new Thread(() -> {
@@ -263,6 +261,7 @@ public class Sender {
             }
             else {  // No space in sliding window, create swStruct and add to queue
                 System.out.println("No room to send in sliding window, adding to buffer");
+                System.out.println(Arrays.toString(dataPkt));
                 swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
                 swQueue.add(qPkt);
                 this.sequenceNumber += extractLength(dataHdr);
@@ -331,9 +330,6 @@ public class Sender {
 
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
-
-            System.out.println(Arrays.toString(recvPacketData));
-
             totalPacketsReceived++;
             totalDataReceived += extractLength(recvPacketData);
 
