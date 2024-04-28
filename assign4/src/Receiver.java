@@ -31,6 +31,8 @@ public class Receiver {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    
+    private Map<Integer, byte[]> unAckedBuffer = new HashMap<>();
 
     public Receiver(int p, int m, int s, String fname) {
         this.port = p;
