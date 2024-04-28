@@ -399,6 +399,11 @@ public class Sender {
                 if (entry.getKey() < seqNum) {
                     System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
+                    System.out.println("Space available in sliding window, sending packet from queue");
+                    swStruct nextPkt = swQueue.poll();
+                    if(nextPkt != null) {
+                        sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                    }
                 }
             }
 
@@ -428,11 +433,11 @@ public class Sender {
 
             // TODO sliding window adjustment
 
-            if (swQueue.size() > 0){
-                System.out.println("Space available in sliding window, sending packet from queue");
-                swStruct nextPkt = swQueue.poll();
-                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
-            }
+            // if (swQueue.size() > 0){
+                // System.out.println("Space available in sliding window, sending packet from queue");
+                // swStruct nextPkt = swQueue.poll();
+                // sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            // }
         }
     }
 
