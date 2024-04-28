@@ -117,7 +117,7 @@ public class Sender {
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         this.senderThread = new Thread(() -> {
-            while(true) {
+            // while(true) {
                 try{ 
                     // Open the file for reading
                     FileInputStream fileInputStream = new FileInputStream(fileName);
@@ -129,16 +129,16 @@ public class Sender {
                         System.arraycopy(buffer, 0, data, 0, bytesRead);
 
                         // Check if there is space in the sliding window
-                        if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+                        // if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
                             // Send data segment
                             String flagList = "- A - D";
                             int flagNum = (DATA | ACK);
 
                             this.sendPacket(data, flagNum, flagList);
         
-                            // Move to the next sequence number
-                            this.nextSeqNumber += 1;
-                        } 
+                            // // Move to the next sequence number
+                            // this.nextSeqNumber += 1;
+                        // } 
                         // else {
                         //     // Wait for acknowledgment or timeout
                         //     try {
@@ -153,7 +153,7 @@ public class Sender {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }  
+            // }  
         });
 
         this.receiverThread = new Thread(() -> {
@@ -255,17 +255,23 @@ public class Sender {
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             try {
-                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                // Log the timer for retransmission
-                Timer timer = new Timer(timeoutDuration);
-                retransmissionTimers.put(sequenceNumber, timer);
+                // Check if there is space in the sliding window
+                if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+                    sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+                    // Log the timer for retransmission
+                    Timer timer = new Timer(timeoutDuration);
+                    retransmissionTimers.put(sequenceNumber, timer);
 
-                // Store the sent packet in sentPackets for tracking
-                sentPackets.put(sequenceNumber, dataPkt);
+                    // Store the sent packet in sentPackets for tracking
+                    sentPackets.put(sequenceNumber, dataPkt);
 
-                // Book-keeping
-                this.sequenceNumber += extractLength(dataHdr);
-                this.totalDataTransferred += extractLength(dataHdr);
+                    // Book-keeping
+                    this.sequenceNumber += extractLength(dataHdr);
+                    this.totalDataTransferred += extractLength(dataHdr);
+
+                    // Move to the next sequence number
+                    this.nextSeqNumber += 1;
+                } 
             } catch (IOException e) {
                 e.printStackTrace();
             }
