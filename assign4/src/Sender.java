@@ -133,6 +133,7 @@ public class Sender {
                         String flagList = "- A - D";
                         int flagNum = (DATA | ACK);
 
+                        System.out.println("PRINTING PACKET: 136");
                         this.sendPacket(data, flagNum, flagList);
                     }
 
