@@ -525,15 +525,17 @@ public class Sender {
                 // First acknowledgment received
                 estimatedRTT = currentTime - ackTimestamp;
                 estimatedDeviation = 0;
-                timeoutDuration = 2 * estimatedRTT;
+                timeoutDuration = (2 * estimatedRTT) / 1000000; // milliseconds
             } else {
                 // Subsequent acknowledgments received
                 long sampleRTT = currentTime - ackTimestamp;
                 long deviation = Math.abs(sampleRTT - estimatedRTT);
-                smoothedRTT = (long) (ALPHA * smoothedRTT + (1 - ALPHA) * sampleRTT);
-                smoothedDeviation = (long) (BETA * smoothedDeviation + (1 - BETA) * deviation);
-                timeoutDuration = smoothedRTT + 4 * smoothedDeviation;
+                estimatedRTT = (long) (ALPHA * estimatedRTT + (1 - ALPHA) * sampleRTT);
+                estimatedDeviation = (long) (BETA * estimatedDeviation + (1 - BETA) * deviation);
+                timeoutDuration = ((estimatedRTT + 4 * estimatedDeviation)) / 1000000; // milliseconds;
             }
+
+            System.out.println("<<SET TIMEOUT TO: " + timeoutDuration);
         }
     }
 
