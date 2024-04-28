@@ -39,6 +39,9 @@ public class Receiver {
     private FileOutputStream outputStream;
 
     private Map<Integer, byte[]> swMap = new HashMap<>();
+    private FileOutputStream outputStream;
+
+    private Map<Integer, byte[]> swMap = new HashMap<>();
 
     public Receiver(int p, int m, int s, String fname) {
         this.port = p;
@@ -143,6 +146,8 @@ public class Receiver {
     }
 
     
+
+    
     private void sendPacket(int flagNum, String flagList, long timeStamp) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE];
@@ -232,6 +237,15 @@ public class Receiver {
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
+                    byte[] payload = extractPayload(recvPacketData);
+
+                    try {
+                        this.outputStream.write(payload);
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
                     byte[] payload = extractPayload(recvPacketData);
 
                     try {
@@ -433,6 +447,7 @@ public class Receiver {
         return (header[16] & 0xFF) << 21 |
                (header[17] & 0xFF) << 13 |
                (header[18] & 0xFF) << 5 |
+               ((header[19] >> 3) & 0x1F);
                ((header[19] >> 3) & 0x1F);
     }
 
