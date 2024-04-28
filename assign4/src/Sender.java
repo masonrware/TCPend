@@ -202,8 +202,6 @@ public class Sender {
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
 
-                // byte[] tmpBuf = new byte[mtu];
-
                 // Wait for SYN-ACK from receiver
                 DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(synackPacket); // blocking!
@@ -404,6 +402,11 @@ public class Sender {
                 if (entry.getKey() < seqNum) {
                     System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
+                    System.out.println("Space available in sliding window, sending packet from queue");
+                    swStruct nextPkt = swQueue.poll();
+                    if(nextPkt!=null) {
+                        sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                    }
                 }
             }
 
@@ -433,11 +436,11 @@ public class Sender {
 
             // TODO sliding window adjustment
 
-            if (swQueue.size() > 0){
-                System.out.println("Space available in sliding window, sending packet from queue");
-                swStruct nextPkt = swQueue.poll();
-                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
-            }
+            // if (swQueue.size() > 0){
+            //     System.out.println("Space available in sliding window, sending packet from queue");
+            //     swStruct nextPkt = swQueue.poll();
+            //     sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+            // }
         }
     }
 
