@@ -407,14 +407,13 @@ public class Sender {
                         try {
                             // sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
                             sendUDPPacket(nextPkt.getPkt(), nextPkt.getFlagList(), extractSequenceNumber(nextPkt.getPkt()));
-                            if(this.sequenceNumber != 1) {
-                                // Log the timer for retransmission
-                                Timer timer = new Timer(timeoutDuration);
-                                retransmissionTimers.put(this.sequenceNumber, timer);
-                            }
+                            
+                            // Log the timer for retransmission
+                            Timer timer = new Timer(timeoutDuration);
+                            retransmissionTimers.put(extractSequenceNumber(nextPkt.getPkt()), timer);
 
                             // Store the sent packet in sentPackets for tracking
-                            sentPackets.put(this.sequenceNumber, nextPkt.getPkt());
+                            sentPackets.put(extractSequenceNumber(nextPkt.getPkt()), nextPkt.getPkt());
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
