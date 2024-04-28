@@ -237,15 +237,9 @@ public class Receiver {
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
-                    byte[] payload = extractPayload(recvPacketData);
-
-                    try {
-                        this.outputStream.write(payload);
-                    }
-                    catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
+                    // Check if in the buffer 
+                        // If it is, flush and remove it
+                        // Else, write straight to file
                     byte[] payload = extractPayload(recvPacketData);
 
                     try {
@@ -278,6 +272,7 @@ public class Receiver {
                     }
                 }
 
+                // Put this in the case where it
                 // Respond with ACK
                 flagList = "- A - -";
                 flagNum = ACK;
@@ -288,6 +283,12 @@ public class Receiver {
             this.lastSeqNumber = extractSequenceNumber(recvPacketData);
             this.lastSize = extractLength(recvPacketData);
         }
+        
+        /*
+         * 
+         * 
+         * 
+         */
     }
 
     /*
