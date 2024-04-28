@@ -52,8 +52,7 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
-
-    private int firstUnackedSequenceNum = 0;
+    private Queue<byte[]> queuedPacekts;
 
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
@@ -76,6 +75,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
+        this.queuedPacekts = new LinkedList<byte[]>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -240,23 +240,30 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            try {
-                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                if(this.sequenceNumber != 1) {
-                    // Log the timer for retransmission
-                    Timer timer = new Timer(timeoutDuration);
-                    retransmissionTimers.put(this.sequenceNumber, timer);
-                }
+            if(this.sentPackets.size() < this.sws) {
+                try {
+                    sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+                    if(this.sequenceNumber != 1) {
+                        // Log the timer for retransmission
+                        Timer timer = new Timer(timeoutDuration);
+                        retransmissionTimers.put(this.sequenceNumber, timer);
+                    }
 
-                // Store the sent packet in sentPackets for tracking
-                sentPackets.put(this.sequenceNumber, dataPkt);
-            } catch (IOException e) {
-                e.printStackTrace();
+                    // Store the sent packet in sentPackets for tracking
+                    sentPackets.put(this.sequenceNumber, dataPkt);
+
+                    // Book-Keeping
+                    this.totalDataTransferred += extractLength(dataHdr);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                // Enqueue the packet (with old timestamp)
+                this.queuedPacekts.add(dataPkt);
             }
 
             // Book-keeping
             this.sequenceNumber += extractLength(dataHdr);
-            this.totalDataTransferred += extractLength(dataHdr);
         }
     }
 
@@ -281,11 +288,16 @@ public class Sender {
                     Timer timer = retransmissionTimers.get(seqNum);
                     timer.markDead();
 
+                    this.sentPackets.remove(extractSequenceNumber(packet));
+
                     // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                     return;
                 }
                 // Resend the packet
                 try {
+                    // Update the timestamp
+                    modifyTimestamp(packet);
+
                     sendUDPPacket(packet, flagList, seqNum);
                     // Restart the timer
                     Timer timer = retransmissionTimers.get(seqNum);
@@ -390,6 +402,37 @@ public class Sender {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
                     unAckedIterator.remove(); // Safe removal using iterator
+
+                    // Dequeue and send a packet
+                    byte[] nextPacketUp = this.queuedPacekts.poll();
+                    if(nextPacketUp != null) {
+                        String flagList = "";
+                        // Build flagList
+                        flagList += extractSYNFlag(nextPacketUp) ? "S " : "- ";
+                        flagList += extractACKFlag(nextPacketUp) ? "A " : "- ";
+                        flagList += extractFINFlag(nextPacketUp) ? "F " : "- ";
+                        flagList += (extractLength(nextPacketUp) > 0) ? "D " : "- ";
+                        
+                        try {
+                            // Update the timestamp
+                            modifyTimestamp(nextPacketUp);
+
+                            sendUDPPacket(nextPacketUp, flagList, extractSequenceNumber(nextPacketUp));
+
+                            // Log the timer for retransmission
+                            Timer timer = new Timer(timeoutDuration);
+                            retransmissionTimers.put(this.sequenceNumber, timer);
+
+                            // Store the sent packet in sentPackets for tracking
+                            sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
+
+                            // Book-Keeping
+                            this.totalDataTransferred += extractLength(nextPacketUp);
+                            this.sequenceNumber += extractLength(nextPacketUp);                            
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
             }
 
@@ -429,6 +472,18 @@ public class Sender {
     /*
      * MISC.
      */
+
+    private void modifyTimestamp(byte[] header) {
+        long currentNano = System.nanoTime();
+        header[8] = (byte) ((currentNano >> 56) & 0xFF);
+        header[9] = (byte) ((currentNano >> 48) & 0xFF);
+        header[10] = (byte) ((currentNano >> 40) & 0xFF);
+        header[11] = (byte) ((currentNano >> 32) & 0xFF);
+        header[12] = (byte) ((currentNano >> 24) & 0xFF);
+        header[13] = (byte) ((currentNano >> 16) & 0xFF);
+        header[14] = (byte) ((currentNano >> 8) & 0xFF);
+        header[15] = (byte) (currentNano & 0xFF);
+    }
 
     // Method to close the connection and print statistics
     private void printStatistics() {
