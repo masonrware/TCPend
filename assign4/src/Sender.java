@@ -57,6 +57,9 @@ public class Sender {
     private InetAddress remoteAddress;
     private byte[] buffer;
 
+    private Queue<queuedPacket> queuedPackets;
+
+
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
 
@@ -134,8 +137,11 @@ public class Sender {
                             String flagList = "- A - D";
                             int flagNum = (DATA | ACK);
 
-                            this.sendPacket(data, flagNum, flagList);
-        
+                            queuedPackets.add(new queuedPacket(data, flagNum, flagList));
+                            clearQueue();
+                            // this.sendPacket(data, flagNum, flagList);
+                            
+
                             // // Move to the next sequence number
                             // this.nextSeqNumber += 1;
                         // } 
@@ -241,6 +247,20 @@ public class Sender {
      * SENDERS
      */
 
+    private void clearQueue() {
+        queuedPacket nextPacket = queuedPackets.poll();
+        if (nextPacket == null) {
+            return;
+        }
+        // Check if there is space in the sliding window
+        if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+            sendPacket(nextPacket.getPkt(), nextPacket.getFlagNum(), nextPacket.getFlagList());
+
+            // Move to the next sequence number
+            this.nextSeqNumber += 1;
+        }
+    }
+
     private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
@@ -262,7 +282,7 @@ public class Sender {
                 }
 
                 // Check if there is space in the sliding window
-                if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+                // if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
@@ -276,10 +296,8 @@ public class Sender {
                     this.totalDataTransferred += extractLength(dataHdr);
 
                     // Move to the next sequence number
-                    this.nextSeqNumber += 1;
-                } else {
-                    //
-                }
+                    // this.nextSeqNumber += 1;
+                // }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -385,7 +403,9 @@ public class Sender {
                 flagNum = ACK;
 
                 byte[] empty_data = new byte[0];
-                sendPacket(empty_data, flagNum, flagList);
+                queuedPackets.add(new queuedPacket(empty_data, flagNum, flagList));
+                clearQueue();
+                // sendPacket(empty_data, flagNum, flagList);
             } else if (extractFINFlag(recvPacketData)) {
                 flagList = "- A F -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
@@ -397,7 +417,9 @@ public class Sender {
                 flagNum = ACK;
 
                 byte[] empty_data = new byte[0];
-                sendPacket(empty_data, flagNum, flagList);
+                queuedPackets.add(new queuedPacket(empty_data, flagNum, flagList));
+                clearQueue();
+                // sendPacket(empty_data, flagNum, flagList);
 
                 printStatistics();
                 
@@ -416,7 +438,9 @@ public class Sender {
                     flagList = "- - F -";
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
-                    sendPacket(empty_data, flagNum, flagList);
+                    queuedPackets.add(new queuedPacket(empty_data, flagNum, flagList));
+                    clearQueue();
+                    // sendPacket(empty_data, flagNum, flagList);
                 }
             }
         }
@@ -636,38 +660,29 @@ public class Sender {
     }
 
     // For adding packets to send queue
-    // public class swStruct {
-    //     private byte[] pkt;
+    public class queuedPacket {
+        private byte[] pkt;
+        private int flagNum;
+        private String flagList;
 
-    //     public swStruct(byte[] pkt){
-    //         this.pkt = pkt;
-    //     }
+        public queuedPacket(byte[] pkt, int flagNum, String flagList){
+            this.pkt = pkt;
+            this.flagNum = flagNum;
+            this.flagList = flagList;
+        }
 
-    //     public byte[] getPkt(){
-    //         return this.pkt;
-    //     }
+        public byte[] getPkt(){
+            return this.pkt;
+        }
 
-    //     public int getFlagNum(){
-    //         int flagNum = 0x000;
-    //         // Build flagNum
-    //         flagNum |= extractSYNFlag(this.pkt) ? 0x100 : 0x000;
-    //         flagNum |= extractACKFlag(this.pkt) ? 0x010 : 0x000;
-    //         flagNum |= extractFINFlag(this.pkt) ? 0x001 : 0x000;
+        public int getFlagNum(){
+            return this.flagNum;
+        }
 
-    //         return flagNum;
-    //     }
-
-    //     public String getFlagList(){
-    //         String flagList = "";
-    //         // Build flagList
-    //         flagList += extractSYNFlag(this.pkt) ? "S " : "- ";
-    //         flagList += extractACKFlag(this.pkt) ? "A " : "- ";
-    //         flagList += extractFINFlag(this.pkt) ? "F " : "- ";
-    //         flagList += (extractLength(this.pkt) > 0) ? "D " : "- ";
-
-    //         return flagList;
-    //     }
-    // }
+        public String getFlagList(){
+            return this.flagList;
+        }
+    }
 
     // Inner class representing a timer
     public class Timer {
