@@ -384,7 +384,6 @@ public class Sender {
             while (unAckedIterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
-                    System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
                 }
             }
