@@ -52,7 +52,6 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
-    private Queue<swStruct> swQueue;
 
     private int firstUnackedSequenceNum = 0;
 
@@ -68,10 +67,6 @@ public class Sender {
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
 
-    // Map to store the mapping between acknowledgment numbers and sequence numbers
-    private Map<Integer, Integer> ackToSeqMap = new HashMap<>();
-
-
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
         this.remoteIP = remIP;
@@ -81,7 +76,6 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
-        this.swQueue = new LinkedList<>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -130,8 +124,6 @@ public class Sender {
                 while ((bytesRead = fileInputStream.read(this.buffer)) != -1) {
                     byte[] data = new byte[bytesRead];
                     System.arraycopy(buffer, 0, data, 0, bytesRead);
-                    System.out.println("BYTES READ: " + bytesRead);
-                    System.out.println("BUFFER SIZE: " + this.buffer.length);
 
                     // Send data segment
                     String flagList = "- A - D";
@@ -236,12 +228,6 @@ public class Sender {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
             byte[] dataHdr = createHeader(data.length, flagNum);
 
-            System.out.println("PRINTING HEADER");
-            printHeader(dataHdr);
-
-            System.out.println("GETTING DATA LENGTH: ");
-            printLen(extractLength(dataHdr));
-
             System.arraycopy(dataHdr, 0, dataPkt, 0, HEADER_SIZE);
             System.arraycopy(data, 0, dataPkt, HEADER_SIZE, data.length);
 
@@ -250,75 +236,65 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            // Check if there is space in the sliding window
-            if (sentPackets.size() < this.sws) {
-                try {
-                    sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+            try {
+                sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
+                if(this.sequenceNumber != 1) {
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
-                    retransmissionTimers.put(sequenceNumber, timer);
-
-                    // Associate the sent seqNum (as the value) with its expected ackNum (as the key)
-                    ackToSeqMap.put(sequenceNumber+extractLength(dataPkt), sequenceNumber);
-
-                    // Store the sent packet in sentPackets for tracking
-                    sentPackets.put(sequenceNumber, dataPkt);
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    retransmissionTimers.put(this.sequenceNumber, timer);
                 }
-    
-                // Book-keeping
-                this.sequenceNumber += extractLength(dataHdr);
-                this.totalDataTransferred += extractLength(dataHdr);
-            }
-            else {  // No space in sliding window, create swStruct and add to queue
-                // Hold onto packet, current sequenceNumber, flag list
-                System.out.println("No room to send in sliding window, adding to buffer");
-                swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
-                swQueue.add(qPkt);
+
+                // Store the sent packet in sentPackets for tracking
+                sentPackets.put(this.sequenceNumber, dataPkt);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
-            
+            // Book-keeping
+            this.sequenceNumber += extractLength(dataHdr);
+            this.totalDataTransferred += extractLength(dataHdr);
         }
     }
 
     // Method to resend a packet given its sequence number
     private void resendPacket(int seqNum) {
-        byte[] packet = sentPackets.get(seqNum);
+        synchronized(lock){
+            byte[] packet = sentPackets.get(seqNum);
 
-        String flagList = "";
-        // Build flagList
-        flagList += extractSYNFlag(packet) ? "S " : "- ";
-        flagList += extractACKFlag(packet) ? "A " : "- ";
-        flagList += extractFINFlag(packet) ? "F " : "- ";
-        flagList += (extractLength(packet) > 0) ? "D " : "- ";
+            String flagList = "";
+            // Build flagList
+            flagList += extractSYNFlag(packet) ? "S " : "- ";
+            flagList += extractACKFlag(packet) ? "A " : "- ";
+            flagList += extractFINFlag(packet) ? "F " : "- ";
+            flagList += (extractLength(packet) > 0) ? "D " : "- ";
 
-        if (packet != null) {
-            // Check if maximum retransmission attempts reached
-            int attempts = retransmissionAttempts.getOrDefault(seqNum, 0);
-            if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
-                // Stop retransmitting and report error
-                System.err.println("Maximum retransmission attempts reached for sequence number: " + seqNum);
-                Timer timer = retransmissionTimers.get(seqNum);
-                timer.markDead();
+            if (packet != null) {
+                // Check if maximum retransmission attempts reached
+                int attempts = retransmissionAttempts.getOrDefault(seqNum, 0);
+                if (attempts >= MAX_RETRANSMISSION_ATTEMPTS) {
+                    // Stop retransmitting and report error
+                    System.err.println("Maximum retransmission attempts reached for sequence number: " + seqNum);
+                    Timer timer = retransmissionTimers.get(seqNum);
+                    timer.markDead();
 
-                // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
-                return;
-            }
-            // Resend the packet
-            try {
-                sendUDPPacket(packet, flagList, seqNum);
-                // Restart the timer
-                Timer timer = retransmissionTimers.get(seqNum);
-                if (timer != null) {
-                    timer.restart();
+                    // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
+                    return;
                 }
-                // Increment total retransmissions for statistics tracking
-                totalRetransmissions++;
-                // Increment the retransmission attempts counter for the current sequence number
-                retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
-            } catch (IOException e) {
-                e.printStackTrace();
+                // Resend the packet
+                try {
+                    sendUDPPacket(packet, flagList, seqNum);
+                    // Restart the timer
+                    Timer timer = retransmissionTimers.get(seqNum);
+                    if (timer != null) {
+                        timer.restart();
+                    }
+                    // Increment total retransmissions for statistics tracking
+                    totalRetransmissions++;
+                    // Increment the retransmission attempts counter for the current sequence number
+                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -386,13 +362,7 @@ public class Sender {
                         extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
 
                 // Handle unacked packet
-                Integer seqNumber = ackToSeqMap.get(extractAcknowledgmentNumber(recvPacketData));
-                if (seqNumber != null) { 
-                    handleAcknowledgment(seqNumber, extractTimestamp(recvPacketData));
-                }
-
-                // TODO: what do we have to do for an ack?
-                // 3. check if we are finished
+                handleAcknowledgment(extractAcknowledgmentNumber(recvPacketData), extractTimestamp(recvPacketData));
 
                 // Check if ACK acknowledges all sent data (indicating end of transmission)
                 if (extractAcknowledgmentNumber(recvPacketData) == (fileSize + 1)) {
@@ -406,36 +376,43 @@ public class Sender {
     }
 
     // Method to handle acknowledgment of a packet
-    private void handleAcknowledgment(int sequenceNumber, long ackTimestamp) {
+    private void handleAcknowledgment(int seqNum, long ackTimestamp) {
         synchronized (lock) {
-            // Remove the acknowledged packet from the sent packets data structure
-            sentPackets.remove(sequenceNumber);
+            // Only remove the acknowledged packet from the sent packets data structure if we have
+            // an ack for the next successive packet
+            Iterator<Map.Entry<Integer, byte[]>> unAckedIterator = sentPackets.entrySet().iterator();
+            while (unAckedIterator.hasNext()) {
+                Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
+                if (entry.getKey() < seqNum) {
+                    unAckedIterator.remove(); // Safe removal using iterator
+                }
+            }
+
+            Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
+            while (retransTimerIterator.hasNext()) {
+                Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
+                if (entry.getKey() < seqNum) {
+                    retransTimerIterator.remove(); // Safe removal using iterator
+                }
+            }
 
             // Cancel the retransmission timer associated with the acknowledged packet
-            retransmissionTimers.remove(sequenceNumber);
-            // if (timer != null) {
-            //     timer.cancel();
-            // }
+            // retransmissionTimers.remove(seqNum);
+
 
             // Calculate the timeout duration based on the acknowledgment timestamp
-            calculateTimeoutDuration(ackTimestamp);
+            // calculateTimeoutDuration(ackTimestamp);
 
             // Check if this is a duplicate ack
-            int duplicateAcks = duplicateAcksCount.getOrDefault(sequenceNumber, 0);
-            duplicateAcksCount.put(sequenceNumber, duplicateAcks + 1);
+            int duplicateAcks = duplicateAcksCount.getOrDefault(seqNum, 0);
+            duplicateAcksCount.put(seqNum, duplicateAcks + 1);
             if (duplicateAcks == 3) {
                 // Trigger retransmission logic for the packet with this sequence number
-                resendPacket(sequenceNumber);
-                duplicateAcksCount.put(sequenceNumber, 0); // Reset duplicate ACK count
+                resendPacket(seqNum);
+                duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
 
             // TODO sliding window adjustment
-            if (swQueue.size() > 0){
-                System.out.println("Space available in sliding window, sending packet from queue");
-                swStruct nextPkt = swQueue.poll();
-                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
-            }
-            
 
             // Adjust sliding window
             // Perform necessary actions based on the sliding window
@@ -556,24 +533,6 @@ public class Sender {
         return ~sum & 0xFFFF;
     }
 
-    public void printHeader(byte[] byteArray) {
-        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
-        for (int i = 0; i < limit; i += 4) {
-            StringBuilder chunk = new StringBuilder();
-            for (int j = 0; j < 4 && i + j < limit; j++) {
-                // Convert byte to binary string and append to chunk
-                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
-            }
-            System.out.println(chunk);
-        }
-    }
-
-    public void printLen(int number) {
-        // Use Integer.toBinaryString to get the binary representation
-        String binary = Integer.toBinaryString(number);
-        System.out.println(binary);
-    }
-
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
                 (header[1] & 0xFF) << 16 |
@@ -601,9 +560,9 @@ public class Sender {
 
     private int extractLength(byte[] header) {
         return (header[16] & 0xFF) << 21 |
-               (header[17] & 0xFF) << 13 |
-               (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0x1F);
+                (header[17] & 0xFF) << 13 |
+                (header[18] & 0xFF) << 5 |
+                ((header[19] >> 3) & 0x1F);
     }
 
     private int extractChecksum(byte[] header) {
@@ -621,31 +580,6 @@ public class Sender {
 
     private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
-    }
-
-    // For adding packets to send queue
-    public class swStruct {
-        private byte[] pkt;
-        private int flagNum;
-        private String flagList;
-
-        public swStruct(byte[] pkt, int flagNum, String flagList){
-            this.pkt = pkt;
-            this.flagNum = flagNum;
-            this.flagList = flagList;
-        }
-
-        public byte[] getPkt(){
-            return this.pkt;
-        }
-
-        public int getFlagNum(){
-            return this.flagNum;
-        }
-
-        public String getFlagList(){
-            return this.flagList;
-        }
     }
 
     // Inner class representing a timer
