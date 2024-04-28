@@ -519,7 +519,7 @@ public class Sender {
     // Method to calculate timeout duration based on provided pseudo code
     private void calculateTimeoutDuration(long ackTimestamp, boolean firstAck) {
         synchronized (lock) {
-            long currentTime = System.nanoTime() / 1000000; // Convert nanoseconds to milliseconds
+            long currentTime = System.nanoTime();
 
             if (firstAck) {
                 // First acknowledgment received
