@@ -261,7 +261,7 @@ public class Sender {
             }
             else {  // No space in sliding window, create swStruct and add to queue
                 System.out.println("No room to send in sliding window, adding to buffer");
-                System.out.println(Arrays.toString(dataPkt));
+                System.out.println(this.sequenceNumber + ": " + Arrays.toString(dataPkt));
                 swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
                 swQueue.add(qPkt);
                 this.sequenceNumber += extractLength(dataHdr);
