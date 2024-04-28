@@ -281,11 +281,7 @@ public class Sender {
             for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
                 System.out.println(entry.getKey() + ": " + Arrays.toString(entry.getValue()));
             }
-            // System.out.println(">>RETRANS TIMERS: ");
-            for(Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
-                System.out.println(entry.getKey());
-            }
-
+            
             byte[] packet = sentPackets.get(seqNum);
 
             String flagList = "";
