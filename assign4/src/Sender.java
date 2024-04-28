@@ -57,9 +57,6 @@ public class Sender {
     private InetAddress remoteAddress;
     private byte[] buffer;
 
-    private Queue<queuedPacket> queuedPackets;
-
-
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
 
@@ -120,7 +117,7 @@ public class Sender {
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         this.senderThread = new Thread(() -> {
-            // while(true) {
+            while(true) {
                 try{ 
                     // Open the file for reading
                     FileInputStream fileInputStream = new FileInputStream(fileName);
@@ -137,12 +134,9 @@ public class Sender {
                             String flagList = "- A - D";
                             int flagNum = (DATA | ACK);
 
-                            queuedPackets.add(new queuedPacket(data, flagNum, flagList));
-                            clearQueue();
-                            // this.sendPacket(data, flagNum, flagList);
-                            
-
-                            // // Move to the next sequence number
+                            this.sendPacket(data, flagNum, flagList);
+        
+                            // Move to the next sequence number
                             // this.nextSeqNumber += 1;
                         // } 
                         // else {
@@ -159,7 +153,7 @@ public class Sender {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            // }  
+            }  
         });
 
         this.receiverThread = new Thread(() -> {
@@ -247,20 +241,6 @@ public class Sender {
      * SENDERS
      */
 
-    private void clearQueue() {
-        queuedPacket nextPacket = queuedPackets.poll();
-        if (nextPacket == null) {
-            return;
-        }
-        // Check if there is space in the sliding window
-        if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
-            sendPacket(nextPacket.getPkt(), nextPacket.getFlagNum(), nextPacket.getFlagList());
-
-            // Move to the next sequence number
-            this.nextSeqNumber += 1;
-        }
-    }
-
     private void sendPacket(byte[] data, int flagNum, String flagList) {
         synchronized (lock) {
             byte[] dataPkt = new byte[HEADER_SIZE + data.length];
@@ -275,8 +255,7 @@ public class Sender {
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             try {
-                // Check if there is space in the sliding window
-                // if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+                if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     // Log the timer for retransmission
                     Timer timer = new Timer(timeoutDuration);
@@ -290,16 +269,13 @@ public class Sender {
                     this.totalDataTransferred += extractLength(dataHdr);
 
                     // Move to the next sequence number
-<<<<<<< HEAD
                     // this.nextSeqNumber += 1;
                 // }
-=======
                     this.nextSeqNumber += 1;
                 } 
-<<<<<<< HEAD
->>>>>>> parent of ff2fa0a (added debug statements)
-=======
->>>>>>> parent of ff2fa0a (added debug statements)
+                // Book-keeping
+                this.sequenceNumber += extractLength(dataHdr);
+                this.totalDataTransferred += extractLength(dataHdr);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -391,9 +367,7 @@ public class Sender {
                 flagNum = ACK;
 
                 byte[] empty_data = new byte[0];
-                queuedPackets.add(new queuedPacket(empty_data, flagNum, flagList));
-                clearQueue();
-                // sendPacket(empty_data, flagNum, flagList);
+                sendPacket(empty_data, flagNum, flagList);
             } else if (extractFINFlag(recvPacketData)) {
                 flagList = "- A F -";
                 outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData),
@@ -405,9 +379,7 @@ public class Sender {
                 flagNum = ACK;
 
                 byte[] empty_data = new byte[0];
-                queuedPackets.add(new queuedPacket(empty_data, flagNum, flagList));
-                clearQueue();
-                // sendPacket(empty_data, flagNum, flagList);
+                sendPacket(empty_data, flagNum, flagList);
 
                 printStatistics();
                 
@@ -426,9 +398,7 @@ public class Sender {
                     flagList = "- - F -";
                     flagNum = FIN;
                     byte[] empty_data = new byte[0];
-                    queuedPackets.add(new queuedPacket(empty_data, flagNum, flagList));
-                    clearQueue();
-                    // sendPacket(empty_data, flagNum, flagList);
+                    sendPacket(empty_data, flagNum, flagList);
                 }
             }
         }
