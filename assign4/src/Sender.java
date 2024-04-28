@@ -153,8 +153,20 @@ public class Sender {
 
                     // TODO: handle checksum!!!
 
-                    // Handle inbound packet
-                    this.handlePacket(inboundPacket.getData());
+                    int oldChecksum = extractChecksum(inboundPacket.getData());
+
+                    inboundPacket.getData()[22] &= 0;
+                    inboundPacket.getData()[23] &= 0;
+
+                    int currChecksum = getChecksum(inboundPacket.getData());
+
+                    if(currChecksum != oldChecksum) {
+                        // Silently drop packet
+                        totalPacketsWithIncorrectChecksum++;
+                    } else {
+                        // Handle inbound packet
+                        this.handlePacket(inboundPacket.getData());
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -534,8 +546,6 @@ public class Sender {
                 estimatedDeviation = (long) (BETA * estimatedDeviation + (1 - BETA) * deviation);
                 timeoutDuration = ((estimatedRTT + 4 * estimatedDeviation)) / 1000000; // milliseconds;
             }
-
-            System.out.println("<<SET TIMEOUT TO: " + timeoutDuration);
         }
     }
 
