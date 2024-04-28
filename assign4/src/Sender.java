@@ -400,6 +400,8 @@ public class Sender {
     // Method to handle acknowledgment of a packet
     private void handleAcknowledgment(int seqNum, long ackTimestamp) {
         synchronized (lock) {
+            int numRemovals = 0;
+
             // Only remove the acknowledged packet from the sent packets data structure if we have
             // an ack for the next successive packet
             Iterator<Map.Entry<Integer, byte[]>> unAckedIterator = sentPackets.entrySet().iterator();
@@ -407,37 +409,41 @@ public class Sender {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
                     unAckedIterator.remove(); // Safe removal using iterator
+                    numRemovals += 1;
+                }
+            }
 
-                    synchronized(qlock){
-                        // Dequeue and send a packet
-                        byte[] nextPacketUp = this.queuedPacekts.poll();
-                        if(nextPacketUp != null) {
-                            String flagList = "";
-                            // Build flagList
-                            flagList += extractSYNFlag(nextPacketUp) ? "S " : "- ";
-                            flagList += extractACKFlag(nextPacketUp) ? "A " : "- ";
-                            flagList += extractFINFlag(nextPacketUp) ? "F " : "- ";
-                            flagList += (extractLength(nextPacketUp) > 0) ? "D " : "- ";
-                            
-                            try {
-                                // Update the timestamp
-                                modifyTimestamp(nextPacketUp);
+            // Send all removed packets
+            for(int i = 0; i<numRemovals; i++) {
+                synchronized(qlock){
+                    // Dequeue and send a packet
+                    byte[] nextPacketUp = this.queuedPacekts.poll();
+                    if(nextPacketUp != null) {
+                        String flagList = "";
+                        // Build flagList
+                        flagList += extractSYNFlag(nextPacketUp) ? "S " : "- ";
+                        flagList += extractACKFlag(nextPacketUp) ? "A " : "- ";
+                        flagList += extractFINFlag(nextPacketUp) ? "F " : "- ";
+                        flagList += (extractLength(nextPacketUp) > 0) ? "D " : "- ";
+                        
+                        try {
+                            // Update the timestamp
+                            modifyTimestamp(nextPacketUp);
 
-                                sendUDPPacket(nextPacketUp, flagList, extractSequenceNumber(nextPacketUp));
+                            sendUDPPacket(nextPacketUp, flagList, extractSequenceNumber(nextPacketUp));
 
-                                // Log the timer for retransmission
-                                Timer timer = new Timer(timeoutDuration);
-                                retransmissionTimers.put(this.sequenceNumber, timer);
+                            // Log the timer for retransmission
+                            Timer timer = new Timer(timeoutDuration);
+                            retransmissionTimers.put(this.sequenceNumber, timer);
 
-                                // Store the sent packet in sentPackets for tracking
-                                sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
+                            // Store the sent packet in sentPackets for tracking
+                            sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
 
-                                // Book-Keeping
-                                this.totalDataTransferred += extractLength(nextPacketUp);
-                                this.sequenceNumber += extractLength(nextPacketUp);                            
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
+                            // Book-Keeping
+                            this.totalDataTransferred += extractLength(nextPacketUp);
+                            this.sequenceNumber += extractLength(nextPacketUp);                            
+                        } catch (IOException e) {
+                            e.printStackTrace();
                         }
                     }
                 }
