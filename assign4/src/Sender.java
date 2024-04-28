@@ -206,6 +206,8 @@ public class Sender {
                 DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
                 socket.receive(synackPacket); // blocking!
 
+
+                System.out.println(Arrays.toString(synackPacket.getData()));
                 // Process SYN-ACK packet
                 if (extractSYNFlag(synackPacket.getData()) && extractACKFlag(synackPacket.getData())) {
                     // Make sure the ack number is correct (syn+1)
