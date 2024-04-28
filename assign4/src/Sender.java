@@ -255,6 +255,12 @@ public class Sender {
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
             try {
+                int i = 0;
+                for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
+                    System.out.println(i + ": " + entry.getKey() + " || " + this.baseSeqNumber + " " + this.nextSeqNumber);
+                    i+=1;
+                }
+
                 // Check if there is space in the sliding window
                 if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
@@ -271,7 +277,9 @@ public class Sender {
 
                     // Move to the next sequence number
                     this.nextSeqNumber += 1;
-                } 
+                } else {
+                    //
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -304,16 +312,30 @@ public class Sender {
                 }
                 // Resend the packet
                 try {
-                    sendUDPPacket(packet, flagList, seqNum);
-                    // Restart the timer
-                    Timer timer = retransmissionTimers.get(seqNum);
-                    if (timer != null) {
-                        timer.restart();
+                    System.out.println(">>RESEND");
+                    int i = 0;
+                    for(Map.Entry<Integer, byte[]> entry : sentPackets.entrySet()) {
+                        System.out.println(i + ": " + entry.getKey() + " || " + this.baseSeqNumber + " " + this.nextSeqNumber);
+                        i+=1;
                     }
-                    // Increment total retransmissions for statistics tracking
-                    totalRetransmissions++;
-                    // Increment the retransmission attempts counter for the current sequence number
-                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+
+                    // Check if there is space in the sliding window
+                    if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+
+                        sendUDPPacket(packet, flagList, seqNum);
+                        // Restart the timer
+                        Timer timer = retransmissionTimers.get(seqNum);
+                        if (timer != null) {
+                            timer.restart();
+                        }
+                        // Increment total retransmissions for statistics tracking
+                        totalRetransmissions++;
+                        // Increment the retransmission attempts counter for the current sequence number
+                        retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
+                        
+                        // Move to the next sequence number
+                        this.nextSeqNumber += 1;
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
