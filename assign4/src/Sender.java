@@ -119,7 +119,7 @@ public class Sender {
 
         System.out.println("[SND] Sending data to " + this.remoteIP + ":" + this.remotePort + "...");
         this.senderThread = new Thread(() -> {
-            while(true) {
+            // while(true) {
                 try{ 
                     // Open the file for reading
                     FileInputStream fileInputStream = new FileInputStream(fileName);
@@ -141,7 +141,7 @@ public class Sender {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }  
+            // }  
         });
 
         this.receiverThread = new Thread(() -> {
