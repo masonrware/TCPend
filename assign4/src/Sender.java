@@ -1,9 +1,12 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Sender {
-    private final Object lock = new Object(); // Object for locking shared resources
+    private final Object lock = new Object();
+    private final Object qlock = new Object();
+    
     private Thread senderThread;
     private Thread receiverThread;
     private Thread timeoutThread;
@@ -52,9 +55,7 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
-    private Queue<swStruct> swQueue;
-
-    private int firstUnackedSequenceNum = 0;
+    private Queue<byte[]> queuedPacekts;
 
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
@@ -68,9 +69,6 @@ public class Sender {
     // Map to store the number of retransmission attempts for each sequence number
     private Map<Integer, Integer> retransmissionAttempts = new HashMap<>();
 
-    // Map to store the mapping between acknowledgment numbers and sequence numbers
-    private Map<Integer, Integer> ackToSeqMap = new HashMap<>();
-
     public Sender(int p, String remIP, int remPort, String fname, int m, int s) {
         this.port = p;
         this.remoteIP = remIP;
@@ -80,7 +78,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
-        this.swQueue = new LinkedList<>();
+        this.queuedPacekts = new ConcurrentLinkedQueue<byte[]>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -147,8 +145,10 @@ public class Sender {
             try {
                 // Receive forever (until we are done sending)
                 while (true) {
+                    byte[] tmpBuf = new byte[mtu];
+
                     // Wait for any inbound packet type
-                    DatagramPacket inboundPacket = new DatagramPacket(this.buffer, this.buffer.length);
+                    DatagramPacket inboundPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
                     socket.receive(inboundPacket); // blocking!
 
                     // TODO: handle checksum!!!
@@ -202,8 +202,10 @@ public class Sender {
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
 
+                byte[] tmpBuf = new byte[mtu];
+
                 // Wait for SYN-ACK from receiver
-                DatagramPacket synackPacket = new DatagramPacket(this.buffer, this.buffer.length);
+                DatagramPacket synackPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
                 socket.receive(synackPacket); // blocking!
 
                 // Process SYN-ACK packet
@@ -241,7 +243,7 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            if (sentPackets.size() <= this.sws) {
+            if(this.sentPackets.size() < this.sws) {
                 try {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     if(this.sequenceNumber != 1) {
@@ -252,20 +254,21 @@ public class Sender {
 
                     // Store the sent packet in sentPackets for tracking
                     sentPackets.put(this.sequenceNumber, dataPkt);
+
+                    // Book-Keeping
+                    this.totalDataTransferred += extractLength(dataHdr);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            } else {
+                synchronized(qlock) {
+                    // Enqueue the packet (with old timestamp)
+                    this.queuedPacekts.add(dataPkt);
+                }
+            }
 
-                // Book-keeping
-                this.sequenceNumber += extractLength(dataHdr);
-                this.totalDataTransferred += extractLength(dataHdr);
-            }
-            else {  // No space in sliding window, create swStruct and add to queue
-                System.out.println("No room to send in sliding window, adding to buffer");
-                swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
-                swQueue.add(qPkt);
-                this.sequenceNumber += extractLength(dataHdr);
-            }
+            // Book-keeping
+            this.sequenceNumber += extractLength(dataHdr);
         }
     }
 
@@ -290,11 +293,16 @@ public class Sender {
                     Timer timer = retransmissionTimers.get(seqNum);
                     timer.markDead();
 
+                    this.sentPackets.remove(extractSequenceNumber(packet));
+
                     // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                     return;
                 }
                 // Resend the packet
                 try {
+                    // Update the timestamp
+                    modifyTimestamp(packet);
+
                     sendUDPPacket(packet, flagList, seqNum);
                     // Restart the timer
                     Timer timer = retransmissionTimers.get(seqNum);
@@ -391,18 +399,51 @@ public class Sender {
     // Method to handle acknowledgment of a packet
     private void handleAcknowledgment(int seqNum, long ackTimestamp) {
         synchronized (lock) {
+            int numRemovals = 0;
+
             // Only remove the acknowledged packet from the sent packets data structure if we have
             // an ack for the next successive packet
             Iterator<Map.Entry<Integer, byte[]>> unAckedIterator = sentPackets.entrySet().iterator();
             while (unAckedIterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
-                    System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
-                    System.out.println("Space available in sliding window, sending packet from queue");
-                    swStruct nextPkt = swQueue.poll();
-                    if(nextPkt != null) {
-                        sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
+                    numRemovals += 1;
+                }
+            }
+
+            // Send all removed packets
+            for(int i = 0; i<numRemovals; i++) {
+                synchronized(qlock){
+                    // Dequeue and send a packet
+                    byte[] nextPacketUp = this.queuedPacekts.poll();
+                    if(nextPacketUp != null) {
+                        String flagList = "";
+                        // Build flagList
+                        flagList += extractSYNFlag(nextPacketUp) ? "S " : "- ";
+                        flagList += extractACKFlag(nextPacketUp) ? "A " : "- ";
+                        flagList += extractFINFlag(nextPacketUp) ? "F " : "- ";
+                        flagList += (extractLength(nextPacketUp) > 0) ? "D " : "- ";
+                        
+                        try {
+                            // Update the timestamp
+                            modifyTimestamp(nextPacketUp);
+
+                            sendUDPPacket(nextPacketUp, flagList, extractSequenceNumber(nextPacketUp));
+
+                            // Log the timer for retransmission
+                            Timer timer = new Timer(timeoutDuration);
+                            retransmissionTimers.put(extractSequenceNumber(nextPacketUp), timer);
+
+                            // Store the sent packet in sentPackets for tracking
+                            sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
+
+                            // Book-Keeping
+                            this.totalDataTransferred += extractLength(nextPacketUp);
+                            // this.sequenceNumber += extractLength(nextPacketUp);                            
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
@@ -433,17 +474,28 @@ public class Sender {
 
             // TODO sliding window adjustment
 
-            // if (swQueue.size() > 0){
-                // System.out.println("Space available in sliding window, sending packet from queue");
-                // swStruct nextPkt = swQueue.poll();
-                // sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
-            // }
+            // Adjust sliding window
+            // Perform necessary actions based on the sliding window
+            // (e.g., slide the window, send more packets if window allows, etc.)
+            // Example: slideWindow(newWindow);
         }
     }
 
     /*
      * MISC.
      */
+
+    private void modifyTimestamp(byte[] header) {
+        long currentNano = System.nanoTime();
+        header[8] = (byte) ((currentNano >> 56) & 0xFF);
+        header[9] = (byte) ((currentNano >> 48) & 0xFF);
+        header[10] = (byte) ((currentNano >> 40) & 0xFF);
+        header[11] = (byte) ((currentNano >> 32) & 0xFF);
+        header[12] = (byte) ((currentNano >> 24) & 0xFF);
+        header[13] = (byte) ((currentNano >> 16) & 0xFF);
+        header[14] = (byte) ((currentNano >> 8) & 0xFF);
+        header[15] = (byte) (currentNano & 0xFF);
+    }
 
     // Method to close the connection and print statistics
     private void printStatistics() {
@@ -553,24 +605,6 @@ public class Sender {
         return ~sum & 0xFFFF;
     }
 
-    public void printHeader(byte[] byteArray) {
-        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
-        for (int i = 0; i < limit; i += 4) {
-            StringBuilder chunk = new StringBuilder();
-            for (int j = 0; j < 4 && i + j < limit; j++) {
-                // Convert byte to binary string and append to chunk
-                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
-            }
-            System.out.println(chunk);
-        }
-    }
-
-    public void printLen(int number) {
-        // Use Integer.toBinaryString to get the binary representation
-        String binary = Integer.toBinaryString(number);
-        System.out.println(binary);
-    }
-
     private int extractSequenceNumber(byte[] header) {
         return (header[0] & 0xFF) << 24 |
                 (header[1] & 0xFF) << 16 |
@@ -618,30 +652,6 @@ public class Sender {
 
     private boolean extractSYNFlag(byte[] header) {
         return ((header[19] >> 2) & 0x1) == 1;
-    }
-
-    public class swStruct {
-        private byte[] pkt;
-        private int flagNum;
-        private String flagList;
-
-        public swStruct(byte[] pkt, int flagNum, String flagList){
-            this.pkt = pkt;
-            this.flagNum = flagNum;
-            this.flagList = flagList;
-        }
-
-        public byte[] getPkt(){
-            return this.pkt;
-        }
-
-        public int getFlagNum(){
-            return this.flagNum;
-        }
-
-        public String getFlagList(){
-            return this.flagList;
-        }
     }
 
     // Inner class representing a timer
