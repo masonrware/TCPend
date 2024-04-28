@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Sender {
     private final Object lock = new Object(); // Object for locking shared resources
@@ -75,7 +76,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
-        this.queuedPacekts = new LinkedList<byte[]>();
+        this.queuedPacekts = new ConcurrentLinkedQueue<byte[]>();
 
         try {
             this.socket = new DatagramSocket(port);
