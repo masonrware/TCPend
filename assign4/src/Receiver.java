@@ -237,9 +237,6 @@ public class Receiver {
 
                 this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
             }
-
-            this.lastSeqNumber = extractSequenceNumber(recvPacketData);
-            this.lastSize = extractLength(recvPacketData);
         }
     }
 
