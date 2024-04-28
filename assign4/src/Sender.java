@@ -153,20 +153,20 @@ public class Sender {
 
                     // TODO: handle checksum!!!
 
-                    int oldChecksum = extractChecksum(inboundPacket.getData());
+                    // int oldChecksum = extractChecksum(inboundPacket.getData());
 
-                    inboundPacket.getData()[22] &= 0;
-                    inboundPacket.getData()[23] &= 0;
+                    // inboundPacket.getData()[22] &= 0;
+                    // inboundPacket.getData()[23] &= 0;
 
-                    int currChecksum = getChecksum(inboundPacket.getData());
+                    // int currChecksum = getChecksum(inboundPacket.getData());
 
-                    if(currChecksum != oldChecksum) {
-                        // Silently drop packet
-                        totalPacketsWithIncorrectChecksum++;
-                    } else {
-                        // Handle inbound packet
-                        this.handlePacket(inboundPacket.getData());
-                    }
+                    // if(currChecksum != oldChecksum) {
+                    //     // Silently drop packet
+                    //     totalPacketsWithIncorrectChecksum++;
+                    // } else {
+                    // Handle inbound packet
+                    this.handlePacket(inboundPacket.getData());
+                    // }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
