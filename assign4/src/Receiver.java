@@ -243,19 +243,20 @@ public class Receiver {
 
                     this.ackNumber += this.extractLength(recvPacketData);
 
-                    // byte[] data = swMap.get(this.ackNumber);
-                    // while (data != null){
-                    //     try {
-                    //         System.out.println("Writing data to " + this.fileName);
-                    //         this.outputStream.write(data);
-                    //     }
-                    //     catch (IOException e){
-                    //         System.out.println("WRITING BACK TO FILE FAILED");
-                    //         e.printStackTrace();
-                    //     }
-                    //     this.ackNumber += extractLength(data);
-                    //     data = swMap.get(this.ackNumber);
-                    // }
+                    byte[] data = swMap.get(this.ackNumber);
+                    while (data != null){
+                        System.out.println("WHILE LOOP 248");
+                        try {
+                            System.out.println("Writing data to " + this.fileName);
+                            this.outputStream.write(data);
+                        }
+                        catch (IOException e){
+                            System.out.println("WRITING BACK TO FILE FAILED");
+                            e.printStackTrace();
+                        }
+                        this.ackNumber += extractLength(data);
+                        data = swMap.get(this.ackNumber);
+                    }
                 }
                 else {  // Data out of order
                     if (swMap.size() < this.sws){   // There is space to stash data
