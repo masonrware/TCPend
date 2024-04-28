@@ -264,6 +264,7 @@ public class Sender {
                 System.out.println("No room to send in sliding window, adding to buffer");
                 swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
                 swQueue.add(qPkt);
+                this.sequenceNumber += extractLength(dataHdr);
             }
         }
     }
