@@ -320,6 +320,7 @@ public class Sender {
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
             totalPacketsReceived++;
+            System.out.println(this.sequenceNumber + " " + Arrays.toString(recvPacketData));
             totalDataReceived += extractLength(recvPacketData);
 
             String flagList = "- - - -";
