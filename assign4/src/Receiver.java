@@ -47,7 +47,6 @@ public class Receiver {
         this.sws = s;
         this.fileName = fname;
         this.buffer = new byte[mtu];
-        
 
         try {
             this.socket = new DatagramSocket(port);
@@ -227,37 +226,33 @@ public class Receiver {
                 flagList = "- A - D";
 
                 this.outputSegmentInfo("rcv", flagList, extractSequenceNumber(recvPacketData), extractLength(recvPacketData), extractAcknowledgmentNumber(recvPacketData));
-                
+
                 // Only update ackNumber if received packet is continuous
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
-                    System.out.println("235: Received expected packet, extractLength: " + extractLength(recvPacketData));
                     byte[] payload = extractPayload(recvPacketData);
 
                     try {
-                        // Write contiguous data to output file
                         this.outputStream.write(payload);
                     }
-                    catch (IOException e){
+                    catch (IOException e) {
                         e.printStackTrace();
                     }
 
                     this.ackNumber += this.extractLength(recvPacketData);
 
-                    // Iterate through swMap, write any data made contiguous by reception of last packet
                     byte[] data = swMap.get(this.ackNumber);
                     while (data != null){
+                        System.out.println("WHILE LOOP 248");
                         try {
                             this.outputStream.write(data);
                         }
                         catch (Exception e){
                             e.printStackTrace();
                         }
-                        
                         this.ackNumber += extractLength(data);
                         data = swMap.get(this.ackNumber);
                     }
-
                 }
                 else {  // Data out of order
                     if (swMap.size() < this.sws){   // There is space to stash data
@@ -369,6 +364,18 @@ public class Receiver {
     }
 
     public void printHeader(byte[] byteArray) {
+        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
+        for (int i = 0; i < limit; i += 4) {
+            StringBuilder chunk = new StringBuilder();
+            for (int j = 0; j < 4 && i + j < limit; j++) {
+                // Convert byte to binary string and append to chunk
+                chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
+            }
+            System.out.println(chunk);
+        }
+    }
+
+    public void printPacket(byte[] byteArray) {
         for (int i = 0; i < byteArray.length; i += 4) {
             StringBuilder chunk = new StringBuilder();
             for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
@@ -377,6 +384,22 @@ public class Receiver {
             }
             System.out.println(chunk);
         }
+    }
+
+    public void printLen(int number) {
+        // Use Integer.toBinaryString to get the binary representation
+        String binary = Integer.toBinaryString(number);
+        System.out.println(binary);
+    }
+
+    private byte[] extractPayload(byte[] packet){
+        int dataLen = extractLength(packet);
+        System.out.println("[extractPayload]: data length is " + dataLen);
+        printPacket(packet);
+        byte[] data = new byte[dataLen];
+        System.arraycopy(packet, 24, data, 0, dataLen);
+
+        return data;
     }
 
     private int extractSequenceNumber(byte[] header) {
@@ -414,14 +437,6 @@ public class Receiver {
     private int extractChecksum(byte[] header) {
         return (header[20] & 0xFF) << 8 |
                (header[21] & 0xFF);
-    }
-
-    private byte[] extractPayload(byte[] packet){
-        int dataLen = extractLength(packet);
-        byte[] data = new byte[dataLen];
-        System.arraycopy(packet, 24, data, 0, dataLen);
-
-        return data;
     }
 
     private boolean extractACKFlag(byte[] header) {

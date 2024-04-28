@@ -56,6 +56,7 @@ public class Sender {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    private Queue<swStruct> swQueue;
 
     // Map to store timers for each sent packet
     private Map<Integer, Timer> retransmissionTimers = new HashMap<>();
@@ -78,6 +79,7 @@ public class Sender {
         this.sws = s;
         // Leave space for the header
         this.buffer = new byte[mtu - HEADER_SIZE];
+        this.swQueue = new LinkedList<swStruct>();
 
         try {
             this.socket = new DatagramSocket(port);
@@ -239,28 +241,30 @@ public class Sender {
             dataPkt[22] = (byte) (checksum & 0xFF);
             dataPkt[23] = (byte) ((checksum >> 8) & 0xFF);
 
-            try {
-                if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
+            if (sentPackets.size() <= this.sws) {
+                try {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                    // Log the timer for retransmission
-                    Timer timer = new Timer(timeoutDuration);
-                    retransmissionTimers.put(sequenceNumber, timer);
+                    if(this.sequenceNumber != 1) {
+                        // Log the timer for retransmission
+                        Timer timer = new Timer(timeoutDuration);
+                        retransmissionTimers.put(this.sequenceNumber, timer);
+                    }
 
                     // Store the sent packet in sentPackets for tracking
-                    sentPackets.put(sequenceNumber, dataPkt);
+                    sentPackets.put(this.sequenceNumber, dataPkt);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
-                    // Book-keeping
-                    this.sequenceNumber += extractLength(dataHdr);
-                    this.totalDataTransferred += extractLength(dataHdr);
-
-                    // Move to the next sequence number
-                    this.nextSeqNumber += 1;
-                } 
                 // Book-keeping
                 this.sequenceNumber += extractLength(dataHdr);
                 this.totalDataTransferred += extractLength(dataHdr);
-            } catch (IOException e) {
-                e.printStackTrace();
+            }
+            else {  // No space in sliding window, create swStruct and add to queue
+                System.out.println("No room to send in sliding window, adding to buffer");
+                swStruct qPkt = new swStruct(dataPkt, flagNum, flagList);
+                swQueue.add(qPkt);
+                this.sequenceNumber += extractLength(dataHdr);
             }
         }
     }
@@ -291,22 +295,16 @@ public class Sender {
                 }
                 // Resend the packet
                 try {
-                    if (this.nextSeqNumber < this.baseSeqNumber + (sws-1)) {
-
-                        sendUDPPacket(packet, flagList, seqNum);
-                        // Restart the timer
-                        Timer timer = retransmissionTimers.get(seqNum);
-                        if (timer != null) {
-                            timer.restart();
-                        }
-                        // Increment total retransmissions for statistics tracking
-                        totalRetransmissions++;
-                        // Increment the retransmission attempts counter for the current sequence number
-                        retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
-
-                        // Move to the next sequence number
-                        this.nextSeqNumber += 1;
+                    sendUDPPacket(packet, flagList, seqNum);
+                    // Restart the timer
+                    Timer timer = retransmissionTimers.get(seqNum);
+                    if (timer != null) {
+                        timer.restart();
                     }
+                    // Increment total retransmissions for statistics tracking
+                    totalRetransmissions++;
+                    // Increment the retransmission attempts counter for the current sequence number
+                    retransmissionAttempts.put(seqNum, retransmissionAttempts.getOrDefault(seqNum, 0) + 1);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -402,11 +400,11 @@ public class Sender {
             while (unAckedIterator.hasNext()) {
                 Map.Entry<Integer, byte[]> entry = unAckedIterator.next();
                 if (entry.getKey() < seqNum) {
+                    System.out.println("REMOVING SEQNUM " + seqNum + " FROM SENTPACKETS");
                     unAckedIterator.remove(); // Safe removal using iterator
                 }
             }
 
-            // Cancel the retransmission timer associated with the acknowledged packet
             Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
             while (retransTimerIterator.hasNext()) {
                 Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
@@ -415,7 +413,11 @@ public class Sender {
                 }
             }
 
-            // TODO: calculate retransmission timer
+            // Cancel the retransmission timer associated with the acknowledged packet
+            // retransmissionTimers.remove(seqNum);
+
+
+            // Calculate the timeout duration based on the acknowledgment timestamp
             // calculateTimeoutDuration(ackTimestamp);
 
             // Check if this is a duplicate ack
@@ -427,9 +429,12 @@ public class Sender {
                 duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
 
-            // Move baseSeqNumber to the next unacknowledged packet
-            while (this.baseSeqNumber < seqNum) {
-                this.baseSeqNumber += 1;
+            // TODO sliding window adjustment
+
+            if (swQueue.size() > 0){
+                System.out.println("Space available in sliding window, sending packet from queue");
+                swStruct nextPkt = swQueue.poll();
+                sendPacket(nextPkt.getPkt(), nextPkt.getFlagNum(), nextPkt.getFlagList());
             }
         }
     }
@@ -547,14 +552,21 @@ public class Sender {
     }
 
     public void printHeader(byte[] byteArray) {
-        for (int i = 0; i < byteArray.length; i += 4) {
+        int limit = Math.min(byteArray.length, 24); // Limit to the first 24 bytes
+        for (int i = 0; i < limit; i += 4) {
             StringBuilder chunk = new StringBuilder();
-            for (int j = 0; j < 4 && i + j < byteArray.length; j++) {
+            for (int j = 0; j < 4 && i + j < limit; j++) {
                 // Convert byte to binary string and append to chunk
                 chunk.append(String.format("%8s", Integer.toBinaryString(byteArray[i + j] & 0xFF)).replace(' ', '0'));
             }
             System.out.println(chunk);
         }
+    }
+
+    public void printLen(int number) {
+        // Use Integer.toBinaryString to get the binary representation
+        String binary = Integer.toBinaryString(number);
+        System.out.println(binary);
     }
 
     private int extractSequenceNumber(byte[] header) {
@@ -606,13 +618,12 @@ public class Sender {
         return ((header[19] >> 2) & 0x1) == 1;
     }
 
-    // For adding packets to send queue
-    public class queuedPacket {
+    public class swStruct {
         private byte[] pkt;
         private int flagNum;
         private String flagList;
 
-        public queuedPacket(byte[] pkt, int flagNum, String flagList){
+        public swStruct(byte[] pkt, int flagNum, String flagList){
             this.pkt = pkt;
             this.flagNum = flagNum;
             this.flagList = flagList;
