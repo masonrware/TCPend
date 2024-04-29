@@ -215,6 +215,8 @@ public class Sender {
                 DatagramPacket synackPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
                 socket.receive(synackPacket); // blocking!
 
+                retransmissionTimers.remove(1);
+                
                 // Process SYN-ACK packet
                 if (extractSYNFlag(synackPacket.getData()) && extractACKFlag(synackPacket.getData())) {
                     // Make sure the ack number is correct (syn+1)
@@ -253,11 +255,11 @@ public class Sender {
             if(this.sentPackets.size() < this.sws) {
                 try {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                    if(this.sequenceNumber != 1) {
+                    // if(this.sequenceNumber != 1) {
                         // Log the timer for retransmission
                         Timer timer = new Timer(timeoutDuration);
                         retransmissionTimers.put(this.sequenceNumber, timer);
-                    }
+                    // }
 
                     // Store the sent packet in sentPackets for tracking
                     sentPackets.put(this.sequenceNumber, dataPkt);
