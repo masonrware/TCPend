@@ -21,8 +21,6 @@ public class Sender {
     // Variables for timeout calculation
     private long estimatedRTT = 0;
     private long estimatedDeviation = 0;
-    private long smoothedRTT = 0;
-    private long smoothedDeviation = 0;
     private long timeoutDuration = 5000; // Initial timeout duration set to 5 seconds
 
     private static final int SYN = 0b100;
@@ -36,14 +34,11 @@ public class Sender {
     private int totalPacketsSent = 0;
     private int totalPacketsReceived = 0;
     private int totalRetransmissions = 0;
-    private int totalOutOfSequencePackets = 0;
     private int totalPacketsWithIncorrectChecksum = 0;
     private int totalDuplicateAcks = 0;
 
     private int sequenceNumber = 0;
     private int ackNumber = 0;
-
-    private int lastAckedSeqNum = -1; // Initialize with an invalid value
 
     private int port;
     private String remoteIP;
@@ -153,8 +148,20 @@ public class Sender {
 
                     // TODO: handle checksum!!!
 
+                    // int oldChecksum = extractChecksum(inboundPacket.getData());
+
+                    // inboundPacket.getData()[22] &= 0;
+                    // inboundPacket.getData()[23] &= 0;
+
+                    // int currChecksum = getChecksum(inboundPacket.getData());
+
+                    // if(currChecksum != oldChecksum) {
+                    //     // Silently drop packet
+                    //     totalPacketsWithIncorrectChecksum++;
+                    // } else {
                     // Handle inbound packet
                     this.handlePacket(inboundPacket.getData());
+                    // }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -254,9 +261,6 @@ public class Sender {
 
                     // Store the sent packet in sentPackets for tracking
                     sentPackets.put(this.sequenceNumber, dataPkt);
-
-                    // Book-Keeping
-                    this.totalDataTransferred += extractLength(dataHdr);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -326,7 +330,9 @@ public class Sender {
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
 
+        // Book-Keeping
         this.totalPacketsSent += 1;
+        this.totalDataTransferred += extractLength(data);
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, seqNum, extractLength(data), this.ackNumber);
@@ -412,7 +418,7 @@ public class Sender {
                 }
             }
 
-            // Send all removed packets
+            // Send all removed packets -- "adjust sliding window"
             for(int i = 0; i<numRemovals; i++) {
                 synchronized(qlock){
                     // Dequeue and send a packet
@@ -437,9 +443,6 @@ public class Sender {
 
                             // Store the sent packet in sentPackets for tracking
                             sentPackets.put(extractSequenceNumber(nextPacketUp), nextPacketUp);
-
-                            // Book-Keeping
-                            this.totalDataTransferred += extractLength(nextPacketUp);
                             // this.sequenceNumber += extractLength(nextPacketUp);                            
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -448,6 +451,7 @@ public class Sender {
                 }
             }
 
+            // Remove retransmission timer
             Iterator<Map.Entry<Integer, Timer>> retransTimerIterator = retransmissionTimers.entrySet().iterator();
             while (retransTimerIterator.hasNext()) {
                 Map.Entry<Integer, Timer> entry = retransTimerIterator.next();
@@ -456,12 +460,10 @@ public class Sender {
                 }
             }
 
-            // Cancel the retransmission timer associated with the acknowledged packet
-            // retransmissionTimers.remove(seqNum);
-
 
             // Calculate the timeout duration based on the acknowledgment timestamp
-            // calculateTimeoutDuration(ackTimestamp);
+            boolean firstAck = (seqNum == 1+mtu-HEADER_SIZE);
+            calculateTimeoutDuration(ackTimestamp, firstAck);
 
             // Check if this is a duplicate ack
             int duplicateAcks = duplicateAcksCount.getOrDefault(seqNum, 0);
@@ -471,13 +473,6 @@ public class Sender {
                 resendPacket(seqNum);
                 duplicateAcksCount.put(seqNum, 0); // Reset duplicate ACK count
             }
-
-            // TODO sliding window adjustment
-
-            // Adjust sliding window
-            // Perform necessary actions based on the sliding window
-            // (e.g., slide the window, send more packets if window allows, etc.)
-            // Example: slideWindow(newWindow);
         }
     }
 
@@ -499,12 +494,16 @@ public class Sender {
 
     // Method to close the connection and print statistics
     private void printStatistics() {
+        for(Map.Entry<Integer, Integer> entry: duplicateAcksCount.entrySet()) {
+            totalDuplicateAcks+=(entry.getValue()-1);
+        }
+
         System.out.println("[DONE] Finished communicating with" + this.remoteAddress +"\nFinal statistics:");
         System.out.println("Total Data Transferred: \t\t\t" + totalDataTransferred + " bytes");
         System.out.println("Total Data Received: \t\t\t\t" + totalDataReceived + " bytes");
         System.out.println("Total Packets Sent: \t\t\t\t" + totalPacketsSent + " packets");
         System.out.println("Total Packets Received: \t\t\t" + totalPacketsReceived + " packets");
-        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
+        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsWithIncorrectChecksum + " packets");
         System.out.println("Total Number of Retransmissions: \t\t" + totalRetransmissions + " retransmits");
         System.out.println("Total Duplicate Acknowledgements: \t\t" + totalDuplicateAcks + " ACKs");
     }
@@ -516,22 +515,22 @@ public class Sender {
     }
 
     // Method to calculate timeout duration based on provided pseudo code
-    private void calculateTimeoutDuration(long ackTimestamp) {
+    private void calculateTimeoutDuration(long ackTimestamp, boolean firstAck) {
         synchronized (lock) {
-            long currentTime = System.nanoTime() / 1000000; // Convert nanoseconds to milliseconds
+            long currentTime = System.nanoTime();
 
-            if (ackTimestamp == 0) {
+            if (firstAck) {
                 // First acknowledgment received
                 estimatedRTT = currentTime - ackTimestamp;
                 estimatedDeviation = 0;
-                timeoutDuration = 2 * estimatedRTT;
+                timeoutDuration = (2 * estimatedRTT) / 1000000; // milliseconds
             } else {
                 // Subsequent acknowledgments received
                 long sampleRTT = currentTime - ackTimestamp;
                 long deviation = Math.abs(sampleRTT - estimatedRTT);
-                smoothedRTT = (long) (ALPHA * smoothedRTT + (1 - ALPHA) * sampleRTT);
-                smoothedDeviation = (long) (BETA * smoothedDeviation + (1 - BETA) * deviation);
-                timeoutDuration = smoothedRTT + 4 * smoothedDeviation;
+                estimatedRTT = (long) (ALPHA * estimatedRTT + (1 - ALPHA) * sampleRTT);
+                estimatedDeviation = (long) (BETA * estimatedDeviation + (1 - BETA) * deviation);
+                timeoutDuration = ((estimatedRTT + 4 * estimatedDeviation)) / 1000000; // milliseconds;
             }
         }
     }

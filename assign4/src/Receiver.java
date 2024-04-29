@@ -5,6 +5,7 @@ import java.util.*;
 
 public class Receiver {
     private final Object lock = new Object(); // Object for locking shared resources
+    // private Timer synAckTimer;
 
     private static final int HEADER_SIZE = 24;
 
@@ -17,16 +18,10 @@ public class Receiver {
     private int totalDataReceived = 0;
     private int totalPacketsSent = 0;
     private int totalPacketsReceived = 0;
-    private int totalRetransmissions = 0;
     private int totalOutOfSequencePackets = 0;
-    private int totalPacketsWithIncorrectChecksum = 0;
-    private int totalDuplicateAcks = 0;
 
     private int sequenceNumber = 0;
     private int ackNumber = 0;
-
-    private int lastSeqNumber = 0;
-    private int lastSize = 0;
 
     private int port;
     private int mtu;
@@ -50,8 +45,7 @@ public class Receiver {
 
         try {
             this.socket = new DatagramSocket(port);
-            this.outputStream = new FileOutputStream(fname);
-        } catch (Exception e) {
+        } catch (SocketException e) {
             e.printStackTrace();
         }
     }
@@ -134,7 +128,6 @@ public class Receiver {
             // Only increment sequence number and total packet count if handshake succeeds
             synchronized(lock) {
                 this.sequenceNumber += 1;
-                this.totalPacketsSent += 2;
             }   
             return true;
         } catch (IOException e) {
@@ -173,6 +166,10 @@ public class Receiver {
         // DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.remotePort);
         DatagramPacket packet = new DatagramPacket(data, data.length, this.remoteAddress, this.port);
         this.socket.send(packet);
+
+        // Book-Keeping
+        this.totalPacketsSent += 1;
+        this.totalDataTransferred += extractLength(data);
 
         // Output information about the sent packet
         outputSegmentInfo("snd", flagList, this.sequenceNumber, extractLength(data), this.ackNumber);
@@ -274,22 +271,21 @@ public class Receiver {
                         System.out.println("No room in sliding window, store in buffer");
                         swMap.put(recvSeqNum, recvPacketData);
                     }
+                } else {
+                    totalOutOfSequencePackets++;
                 }
 
                 // Put this in the case where it
                 // Respond with ACK
-                
+                flagList = "- A - -";
+                flagNum = ACK;
+
+                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
             }
 
             this.lastSeqNumber = extractSequenceNumber(recvPacketData);
             this.lastSize = extractLength(recvPacketData);
         }
-        
-        /*
-         * 
-         * 
-         * 
-         */
     }
 
     /*
@@ -304,9 +300,6 @@ public class Receiver {
         System.out.println("Total Packets Sent: \t\t\t\t" + totalPacketsSent + " packets");
         System.out.println("Total Packets Received: \t\t\t" + totalPacketsReceived + " packets");
         System.out.println("Total Out-of-Sequence Packets: \t\t\t" + totalOutOfSequencePackets + " packets");
-        System.out.println("Total Packets Discarded Due To Checksum: \t" + totalPacketsReceived + " packets");
-        System.out.println("Total Number of Retransmissions: \t\t" + totalRetransmissions + " retransmits");
-        System.out.println("Total Duplicate Acknowledgements: \t\t" + totalDuplicateAcks + " ACKs");
     }
 
     // Method to output segment information
