@@ -107,6 +107,7 @@ public class Sender {
         this.timeoutThread = new Thread(() -> {
             while (true) {
                 synchronized (lock) {
+                    System.out.println("<<TIMER THREAD RUNNING");
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
@@ -209,10 +210,6 @@ public class Sender {
 
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
-
-                for(Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
-                    System.out.println("<< " + entry.getKey());
-                }
 
                 byte[] tmpBuf = new byte[mtu];
 
