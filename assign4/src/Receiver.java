@@ -48,6 +48,14 @@ public class Receiver {
         } catch (SocketException e) {
             e.printStackTrace();
         }
+
+        try {
+            File file = new File(fname);
+            file.createNewFile(); // if file already exists will do nothing 
+            this.outputStream = new FileOutputStream(file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /*
