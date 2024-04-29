@@ -311,6 +311,14 @@ public class Sender {
 
                     this.sentPackets.remove(extractSequenceNumber(packet));
 
+                    if(extractFINFlag(packet)) {
+                        
+                        printStatistics();
+                        
+                        // Successfully exit
+                        System.exit(1);
+                    }
+                    
                     // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                     return;
                 }
