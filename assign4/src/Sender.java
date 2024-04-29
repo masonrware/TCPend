@@ -103,34 +103,6 @@ public class Sender {
      */
 
     public void start() {
-        // Thread for monitoring retransmissions and handling timeouts
-        this.timeoutThread = new Thread(() -> {
-            while (true) {
-                synchronized (lock) {
-                    System.out.println("<<TIMER THREAD RUNNING");
-                    // Check for expired retransmission timers
-                    for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
-                        Timer timer = entry.getValue();
-                        System.out.println("<<TIMER THREAD SEES: " + entry.getKey());
-                        if (!timer.isDead() && timer.hasExpired()) {
-                            int sequenceNumber = entry.getKey();
-                            resendPacket(sequenceNumber);
-                            // Restart the timer
-                            timer.restart();
-                        }
-                    }
-                }
-
-                // Sleep for a short duration before checking again
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-        this.timeoutThread.start();
-
         // Attempt handshake
         System.out.println("[SND] Attempting handshake on port " + this.port + "...");
         try {
@@ -196,6 +168,32 @@ public class Sender {
             }
         });
 
+        // Thread for monitoring retransmissions and handling timeouts
+        this.timeoutThread = new Thread(() -> {
+            while (true) {
+                synchronized (lock) {
+                    // Check for expired retransmission timers
+                    for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
+                        Timer timer = entry.getValue();
+                        if (!timer.isDead() && timer.hasExpired()) {
+                            int sequenceNumber = entry.getKey();
+                            resendPacket(sequenceNumber);
+                            // Restart the timer
+                            timer.restart();
+                        }
+                    }
+                }
+
+                // Sleep for a short duration before checking again
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        this.timeoutThread.start();
         this.senderThread.start();
         this.receiverThread.start();
     }
@@ -210,12 +208,19 @@ public class Sender {
 
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
+                socket.setSoTimeout(7000); // Wait 7 seconds for synack
 
                 byte[] tmpBuf = new byte[mtu];
 
                 // Wait for SYN-ACK from receiver
                 DatagramPacket synackPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
-                socket.receive(synackPacket); // blocking!
+                try{
+                    socket.receive(synackPacket); // blocking
+                } catch (SocketTimeoutException e) {
+                    // Probably won't drop two syn's in a row
+                    this.sendPacket(empty_data, flagNum, flagList);
+                    socket.receive(synackPacket); // blocking
+                }
                 
                 // Process SYN-ACK packet
                 if (extractSYNFlag(synackPacket.getData()) && extractACKFlag(synackPacket.getData())) {
@@ -255,11 +260,11 @@ public class Sender {
             if(this.sentPackets.size() < this.sws) {
                 try {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
-                    // if(this.sequenceNumber != 1) {
+                    if(this.sequenceNumber != 1) {
                         // Log the timer for retransmission
-                    Timer timer = new Timer(timeoutDuration);
-                    retransmissionTimers.put(this.sequenceNumber, timer);
-                    // }
+                        Timer timer = new Timer(timeoutDuration);
+                        retransmissionTimers.put(this.sequenceNumber, timer);
+                    }
 
                     // Store the sent packet in sentPackets for tracking
                     sentPackets.put(this.sequenceNumber, dataPkt);
