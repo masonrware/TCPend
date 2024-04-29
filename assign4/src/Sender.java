@@ -103,6 +103,31 @@ public class Sender {
      */
 
     public void start() {
+        // Thread for monitoring retransmissions and handling timeouts
+        this.timeoutThread = new Thread(() -> {
+            while (true) {
+                synchronized (lock) {
+                    // Check for expired retransmission timers
+                    for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
+                        Timer timer = entry.getValue();
+                        if (!timer.isDead() && timer.hasExpired()) {
+                            int sequenceNumber = entry.getKey();
+                            resendPacket(sequenceNumber);
+                            // Restart the timer
+                            timer.restart();
+                        }
+                    }
+                }
+
+                // Sleep for a short duration before checking again
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        
         // Attempt handshake
         System.out.println("[SND] Attempting handshake on port " + this.port + "...");
         try {
@@ -165,31 +190,6 @@ public class Sender {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-            }
-        });
-
-        // Thread for monitoring retransmissions and handling timeouts
-        this.timeoutThread = new Thread(() -> {
-            while (true) {
-                synchronized (lock) {
-                    // Check for expired retransmission timers
-                    for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
-                        Timer timer = entry.getValue();
-                        if (!timer.isDead() && timer.hasExpired()) {
-                            int sequenceNumber = entry.getKey();
-                            resendPacket(sequenceNumber);
-                            // Restart the timer
-                            timer.restart();
-                        }
-                    }
-                }
-
-                // Sleep for a short duration before checking again
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
             }
         });
 
