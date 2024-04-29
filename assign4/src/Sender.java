@@ -210,13 +210,15 @@ public class Sender {
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
 
+                for(Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
+                    System.out.println("<< " + entry.getKey());
+                }
+
                 byte[] tmpBuf = new byte[mtu];
 
                 // Wait for SYN-ACK from receiver
                 DatagramPacket synackPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
                 socket.receive(synackPacket); // blocking!
-
-                retransmissionTimers.remove(1);
                 
                 // Process SYN-ACK packet
                 if (extractSYNFlag(synackPacket.getData()) && extractACKFlag(synackPacket.getData())) {
@@ -258,8 +260,8 @@ public class Sender {
                     sendUDPPacket(dataPkt, flagList, this.sequenceNumber);
                     // if(this.sequenceNumber != 1) {
                         // Log the timer for retransmission
-                        Timer timer = new Timer(timeoutDuration);
-                        retransmissionTimers.put(this.sequenceNumber, timer);
+                    Timer timer = new Timer(timeoutDuration);
+                    retransmissionTimers.put(this.sequenceNumber, timer);
                     // }
 
                     // Store the sent packet in sentPackets for tracking
