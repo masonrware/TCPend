@@ -252,21 +252,21 @@ public class Receiver {
                         e.printStackTrace();
                     }
 
-                    this.ackNumber += this.extractLength(recvPacketData);
+                    int tmpAckNumber = this.ackNumber + this.extractLength(recvPacketData);
 
-                    byte[] data = swMap.get(this.ackNumber);
+                    byte[] data = swMap.get(tmpAckNumber);
                     while (data != null){
                         try {
                             System.out.println("Writing data to " + this.fileName);
                             this.outputStream.write(extractPayload(data));
-                            swMap.remove(this.ackNumber);
+                            swMap.remove(tmpAckNumber);
                         }
                         catch (IOException e){
                             System.out.println("WRITING BACK TO FILE FAILED");
                             e.printStackTrace();
                         }
-                        this.ackNumber += extractLength(data);
-                        data = swMap.get(this.ackNumber);
+                        tmpAckNumber += extractLength(data);
+                        data = swMap.get(tmpAckNumber);
                     }
 
                     
@@ -277,6 +277,9 @@ public class Receiver {
                         swMap.put(recvSeqNum, recvPacketData);
                     }
                 }
+
+                this.ackNumber += this.extractLength(recvPacketData);
+
                 flagList = "- A - -";
                 flagNum = ACK;
 
