@@ -271,22 +271,10 @@ public class Receiver {
                         System.out.println("No room in sliding window, store in buffer");
                         swMap.put(recvSeqNum, recvPacketData);
                     }
-                } else {
-                    totalOutOfSequencePackets++;
                 }
 
-                // Put this in the case where it
-                // Respond with ACK
-                flagList = "- A - -";
-                flagNum = ACK;
-
-                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
-            }
-
-            this.lastSeqNumber = extractSequenceNumber(recvPacketData);
-            this.lastSize = extractLength(recvPacketData);
-        }
-    }
+        
+    }}}
 
     /*
      * MISC.
