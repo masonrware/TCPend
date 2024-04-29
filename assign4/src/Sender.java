@@ -223,8 +223,11 @@ public class Sender {
                     socket.receive(synackPacket); // blocking
                 } catch (SocketTimeoutException e) {
                     // Probably won't drop two syn's in a row
-                    this.sendPacket(empty_data, flagNum, flagList);
-                    socket.receive(synackPacket); // blocking
+                    // this.sendPacket(empty_data, flagNum, flagList);
+                    // socket.receive(synackPacket); // blocking
+                    this.sequenceNumber = 0;
+                    this.ackNumber = 0;
+                    handshake();
                 }
                 
                 // Process SYN-ACK packet
@@ -318,7 +321,7 @@ public class Sender {
                         // Successfully exit
                         System.exit(1);
                     }
-                    
+
                     // we may want to handle this error condition appropriately (e.g., close the connection, notify the user, etc.)
                     return;
                 }
