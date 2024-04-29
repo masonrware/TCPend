@@ -128,6 +128,7 @@ public class Sender {
                 }
             }
         });
+        this.receiverThread.start();
 
         // Attempt handshake
         System.out.println("[SND] Attempting handshake on port " + this.port + "...");
@@ -195,7 +196,6 @@ public class Sender {
         });
 
         this.senderThread.start();
-        this.receiverThread.start();
         this.timeoutThread.start();
     }
 
