@@ -495,7 +495,7 @@ public class Sender {
     // Method to close the connection and print statistics
     private void printStatistics() {
         for(Map.Entry<Integer, Integer> entry: duplicateAcksCount.entrySet()) {
-            totalDuplicateAcks+=(entry.getValue()-1);
+            totalDuplicateAcks+=((entry.getValue() == 0) ? entry.getValue() : entry.getValue()-1);
         }
 
         System.out.println("[DONE] Finished communicating with" + this.remoteAddress +"\nFinal statistics:");

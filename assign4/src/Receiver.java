@@ -81,6 +81,7 @@ public class Receiver {
                     this.remoteAddress = inboundPacket.getAddress();
                     this.remotePort = inboundPacket.getPort();
 
+                    this.totalDataReceived += extractLength(inboundPacket.getData());
                     // Handle inbound packet
                     this.handlePacket(inboundPacket.getData());
                 } catch (IOException e) {
@@ -181,7 +182,7 @@ public class Receiver {
     private void handlePacket(byte[] recvPacketData) {
         synchronized (lock) {
             this.totalPacketsReceived += 1;
-            this.totalDataReceived += extractLength(recvPacketData);
+            // this.totalDataReceived += extractLength(recvPacketData);
 
             String flagList = "- - - -";
             int flagNum = 0;
