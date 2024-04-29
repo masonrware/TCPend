@@ -128,7 +128,7 @@ public class Sender {
                 }
             }
         });
-        this.receiverThread.start();
+        this.timeoutThread.start();
 
         // Attempt handshake
         System.out.println("[SND] Attempting handshake on port " + this.port + "...");
@@ -196,7 +196,7 @@ public class Sender {
         });
 
         this.senderThread.start();
-        this.timeoutThread.start();
+        this.receiverThread.start();
     }
 
     // Method to handle TCP handshake only if no packets have been sent
