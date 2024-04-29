@@ -123,6 +123,25 @@ public class Receiver {
                     if (this.extractAcknowledgmentNumber(ackPacket.getData()) == this.sequenceNumber + 1) {
                         this.handlePacket(ackPacket.getData());
                     }
+                } else if (extractSYNFlag(ackPacket.getData())) {
+                    // This means our Syn ack was dropped and the sender resent the syn -- we have to rehandle
+                    // Only init connection if the syn packet's seq num is 0
+                    if(extractSequenceNumber(synPacket.getData()) == 0) {
+                        this.handlePacket(synPacket.getData());
+                    } else {
+                        System.out.println("Handshake Failed -- received SYN packet with non-zero sequence number.");
+                        return false;
+                    }
+                    this.socket.receive(ackPacket); // blocking !
+                    if (extractACKFlag(ackPacket.getData())) {
+                        // Make sure the ack number is correct (seqNum + 1)
+                        if (this.extractAcknowledgmentNumber(ackPacket.getData()) == this.sequenceNumber + 1) {
+                            this.handlePacket(ackPacket.getData());
+                        }
+                    } else {
+                        System.out.println("Handshake Failed -- did not receive correct ACK from sender.");
+                        return false;
+                    }
                 } else {
                     System.out.println("Handshake Failed -- did not receive correct ACK from sender.");
                     return false;
