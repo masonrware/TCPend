@@ -144,7 +144,12 @@ public class Sender {
 
                     // Wait for any inbound packet type
                     DatagramPacket inboundPacket = new DatagramPacket(tmpBuf, tmpBuf.length);
-                    socket.receive(inboundPacket); // blocking!
+                    try{                    
+                        socket.receive(inboundPacket); // blocking!
+                    } catch (SocketTimeoutException e) {
+                        // Resend last packet
+                        resendPacket(this.sequenceNumber);
+                    }
 
                     // TODO: handle checksum!!!
 
