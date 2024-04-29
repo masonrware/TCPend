@@ -125,6 +125,7 @@ public class Receiver {
                     }
                 } else if (extractSYNFlag(ackPacket.getData())) {
                     // This means our Syn ack was dropped and the sender resent the syn -- we have to rehandle
+                    this.ackNumber -= 1;
                     // Only init connection if the syn packet's seq num is 0
                     if(extractSequenceNumber(synPacket.getData()) == 0) {
                         this.handlePacket(synPacket.getData());

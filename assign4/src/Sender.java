@@ -213,7 +213,7 @@ public class Sender {
 
                 // Send SYN packet
                 this.sendPacket(empty_data, flagNum, flagList);
-                socket.setSoTimeout(7000); // Wait 7 seconds for synack
+                socket.setSoTimeout(5000); // Wait 5 seconds for synack, else resend syn
 
                 byte[] tmpBuf = new byte[mtu];
 
