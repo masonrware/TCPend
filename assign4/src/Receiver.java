@@ -39,9 +39,7 @@ public class Receiver {
     private FileOutputStream outputStream;
 
     private Map<Integer, byte[]> swMap = new HashMap<>();
-    private FileOutputStream outputStream;
 
-    private Map<Integer, byte[]> swMap = new HashMap<>();
 
     public Receiver(int p, int m, int s, String fname) {
         this.port = p;
@@ -256,6 +254,7 @@ public class Receiver {
                         try {
                             System.out.println("Writing data to " + this.fileName);
                             this.outputStream.write(extractPayload(data));
+                            swMap.remove(this.ackNumber);
                         }
                         catch (IOException e){
                             System.out.println("WRITING BACK TO FILE FAILED");
@@ -264,6 +263,11 @@ public class Receiver {
                         this.ackNumber += extractLength(data);
                         data = swMap.get(this.ackNumber);
                     }
+
+                    flagList = "- A - -";
+                    flagNum = ACK;
+
+                    this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
                 }
                 else {  // Data out of order
                     if (swMap.size() < this.sws){   // There is space to stash data
@@ -274,10 +278,7 @@ public class Receiver {
 
                 // Put this in the case where it
                 // Respond with ACK
-                flagList = "- A - -";
-                flagNum = ACK;
-
-                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
+                
             }
 
             this.lastSeqNumber = extractSequenceNumber(recvPacketData);
@@ -448,7 +449,6 @@ public class Receiver {
         return (header[16] & 0xFF) << 21 |
                (header[17] & 0xFF) << 13 |
                (header[18] & 0xFF) << 5 |
-               ((header[19] >> 3) & 0x1F);
                ((header[19] >> 3) & 0x1F);
     }
 
