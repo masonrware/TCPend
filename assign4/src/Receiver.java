@@ -27,7 +27,6 @@ public class Receiver {
     private int mtu;
     private int remotePort;
     private int sws;
-    private String fileName;
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
@@ -37,7 +36,6 @@ public class Receiver {
         this.port = p;
         this.mtu = m;
         this.sws = s;
-        this.fileName = fname;
         this.buffer = new byte[mtu];
 
         try {

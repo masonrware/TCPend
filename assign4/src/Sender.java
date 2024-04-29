@@ -110,6 +110,7 @@ public class Sender {
                     // Check for expired retransmission timers
                     for (Map.Entry<Integer, Timer> entry : retransmissionTimers.entrySet()) {
                         Timer timer = entry.getValue();
+                        System.out.println("<<TIMER THREAD SEES: " + entry.getKey());
                         if (!timer.isDead() && timer.hasExpired()) {
                             int sequenceNumber = entry.getKey();
                             resendPacket(sequenceNumber);
@@ -127,7 +128,7 @@ public class Sender {
                 }
             }
         });
-        
+
         // Attempt handshake
         System.out.println("[SND] Attempting handshake on port " + this.port + "...");
         try {
