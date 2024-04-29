@@ -31,6 +31,7 @@ public class Receiver {
     private DatagramSocket socket;
     private InetAddress remoteAddress;
     private byte[] buffer;
+    private FileOutputStream fileOutputStream;
 
     public Receiver(int p, int m, int s, String fname) {
         this.port = p;
@@ -42,6 +43,14 @@ public class Receiver {
         try {
             this.socket = new DatagramSocket(port);
         } catch (SocketException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            File file = new File(fname);
+            file.createNewFile();
+            this.fileOutputStream = new FileOutputStream(file);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -227,6 +236,12 @@ public class Receiver {
                 int recvSeqNum = this.extractSequenceNumber(recvPacketData);
                 if (recvSeqNum == this.ackNumber) {
                     this.ackNumber += this.extractLength(recvPacketData);
+                    try {
+                        // Only write consecutive data
+                        this.fileOutputStream.write(extractPayload(recvPacketData));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 } else {
                     totalOutOfSequencePackets++;
                 }
@@ -326,6 +341,14 @@ public class Receiver {
 
         // Flip all 16 bits to get the checksum
         return ~sum & 0xFFFF;
+    }
+
+    private byte[] extractPayload(byte[] packet){
+        int dataLen = extractLength(packet);
+        byte[] data = new byte[dataLen];
+        System.arraycopy(packet, 24, data, 0, dataLen);
+
+        return data;
     }
 
     private int extractSequenceNumber(byte[] header) {
