@@ -261,10 +261,7 @@ public class Receiver {
                         data = swMap.get(this.ackNumber);
                     }
 
-                    flagList = "- A - -";
-                    flagNum = ACK;
-
-                    this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
+                    
                 }
                 else {  // Data out of order
                     if (swMap.size() < this.sws){   // There is space to stash data
@@ -272,7 +269,10 @@ public class Receiver {
                         swMap.put(recvSeqNum, recvPacketData);
                     }
                 }
+                flagList = "- A - -";
+                flagNum = ACK;
 
+                this.sendPacket(flagNum, flagList, extractTimestamp(recvPacketData));
         
     }}}
 
