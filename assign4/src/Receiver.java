@@ -237,8 +237,10 @@ public class Receiver {
                 if (recvSeqNum == this.ackNumber) {
                     this.ackNumber += this.extractLength(recvPacketData);
                     try {
-                        // Only write consecutive data
-                        this.fileOutputStream.write(extractPayload(recvPacketData));
+                        synchronized(lock) {
+                            // Only write consecutive data
+                            this.fileOutputStream.write(extractPayload(recvPacketData));
+                        }
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
